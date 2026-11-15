@@ -1,0 +1,33 @@
+# Maven build output
+/target/
+
+# Compiled files and logs
+*.class
+*.log
+hs_err_pid*
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# IDE metadata
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated/
+.springBeans
+.sts4-cache/
+/nbproject/private/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
