@@ -3,6 +3,7 @@ package com.hospital.hms.controller;
 import com.hospital.hms.entity.Department;
 import com.hospital.hms.service.DepartmentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public class DepartmentController {
 
     // Endpoint to create a new department
     @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Department createDepartment(@RequestBody Department department) {
         return departmentService.saveDepartment(department);
     }

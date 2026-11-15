@@ -3,6 +3,7 @@ package com.hospital.hms.controller;
 import com.hospital.hms.entity.Doctor;
 import com.hospital.hms.service.DoctorService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public class DoctorController {
 
     // Endpoint to register a new doctor
     @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Doctor createDoctor(@RequestBody Doctor doctor) {
         return doctorService.saveDoctor(doctor);
     }

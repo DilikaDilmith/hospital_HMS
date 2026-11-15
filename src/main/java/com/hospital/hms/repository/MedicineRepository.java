@@ -6,5 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface MedicineRepository extends JpaRepository<Medicine, Long> {
-    // Spring Data JPA provides built-in CRUD operations for the Medicine entity
+    // Count medicines where stock quantity is less than a certain threshold (e.g., 50)
+    long countByStockQuantityLessThan(int threshold);
 }
