@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 public class AuthResponse {
     // The JWT token returned to the client after successful login
     private String token;
+    private String role;
 }

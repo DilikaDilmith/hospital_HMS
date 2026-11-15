@@ -16,7 +16,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class User implements UserDetails { // <--- Added UserDetails interface
+public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,41 +35,39 @@ public class User implements UserDetails { // <--- Added UserDetails interface
     @Column(nullable = false)
     private Role role;
 
+    // New field to track if the user is approved by Admin
+    @Column(nullable = false)
+    private String status; // "PENDING", "APPROVED", "REJECTED"
+
     // --- Spring Security UserDetails Methods ---
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Map our custom Role to Spring Security Authority
         return List.of(new SimpleGrantedAuthority(role.name()));
     }
 
     @Override
-    public String getPassword() {
-        return password;
-    }
+    public String getPassword() { return password; }
 
     @Override
-    public String getUsername() {
-        return username;
-    }
+    public String getUsername() { return username; }
 
     @Override
-    public boolean isAccountNonExpired() {
-        return true; // Account never expires
-    }
+    public boolean isAccountNonExpired() { return true; }
 
     @Override
-    public boolean isAccountNonLocked() {
-        return true; // Account is never locked
-    }
+    public boolean isAccountNonLocked() { return true; }
 
     @Override
-    public boolean isCredentialsNonExpired() {
-        return true; // Credentials never expire
-    }
+    public boolean isCredentialsNonExpired() { return true; }
 
     @Override
     public boolean isEnabled() {
-        return true; // Account is always enabled
+        // Admin accounts are always enabled
+        if (role == Role.ADMIN) {
+            return true;
+        }
+        // Allow if explicitly APPROVED, or legacy accounts without status
+        return status == null || "APPROVED".equalsIgnoreCase(status);
     }
 }

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Entity
 @Table(name = "patients")
@@ -33,6 +34,7 @@ public class Patient {
 
     // Patient's date of birth
     @Column(nullable = false)
+    @JsonFormat(pattern="yyyy-MM-dd")
     private LocalDate dateOfBirth;
 
     // Patient's gender (e.g., Male, Female, Other)
