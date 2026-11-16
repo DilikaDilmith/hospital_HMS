@@ -15,6 +15,12 @@ public class PatientService {
 
     // Register a new patient in the system
     public Patient registerPatient(Patient patient) {
+        // Sanitize NIC: if empty or only whitespace, set to null to avoid unique constraint violations in DB
+        if (patient.getNic() != null && patient.getNic().trim().isEmpty()) {
+            patient.setNic(null);
+        } else if (patient.getNic() != null) {
+            patient.setNic(patient.getNic().trim());
+        }
         return patientRepository.save(patient);
     }
 

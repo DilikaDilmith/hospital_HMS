@@ -13,9 +13,11 @@ function AddBillModal({ onClose, onBillAdded }) {
     // Fetch patients to populate the dropdown
     useEffect(() => {
         const fetchPatients = async () => {
+            const currentToken = localStorage.getItem('token');
+            const authConfig = { headers: { Authorization: `Bearer ${currentToken}` } };
             try {
-                const res = await axios.get('http://localhost:8080/api/patients', config);
-                setPatients(res.data);
+                const res = await axios.get('http://localhost:8080/api/patients', authConfig);
+                setPatients(Array.isArray(res.data) ? res.data : []);
             } catch (error) {
                 console.error("Error fetching patients", error);
             }
@@ -27,6 +29,8 @@ function AddBillModal({ onClose, onBillAdded }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const currentToken = localStorage.getItem('token');
+        const authConfig = { headers: { Authorization: `Bearer ${currentToken}` } };
         try {
             const payload = {
                 description: billData.description,
@@ -35,7 +39,7 @@ function AddBillModal({ onClose, onBillAdded }) {
                 patient: { id: billData.patientId }
             };
 
-            await axios.post('http://localhost:8080/api/bills', payload, config);
+            await axios.post('http://localhost:8080/api/bills', payload, authConfig);
             onBillAdded();
             onClose();
         } catch (error) {

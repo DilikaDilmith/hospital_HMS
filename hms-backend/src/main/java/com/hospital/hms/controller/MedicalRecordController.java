@@ -3,7 +3,7 @@ package com.hospital.hms.controller;
 import com.hospital.hms.entity.MedicalRecord;
 import com.hospital.hms.service.MedicalRecordService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.prepost.PreAuthorize; // <-- අලුතෙන් එකතු කරන්න
+import org.springframework.security.access.prepost.PreAuthorize; 
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

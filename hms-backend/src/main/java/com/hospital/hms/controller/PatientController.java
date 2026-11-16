@@ -3,6 +3,7 @@ package com.hospital.hms.controller;
 import com.hospital.hms.entity.Patient;
 import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,14 +18,20 @@ public class PatientController {
 
     // Endpoint to register a new patient (POST request)
     @PostMapping
-    public Patient registerPatient(@RequestBody Patient patient) {
-        return patientService.registerPatient(patient);
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR')")
+    public ResponseEntity<?> registerPatient(@RequestBody Patient patient) {
+        try {
+            Patient savedPatient = patientService.registerPatient(patient);
+            return ResponseEntity.ok(savedPatient);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to register patient: " + e.getMessage());
+        }
     }
 
     // Endpoint to get a list of all patients (GET request)
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR')")
-    public List<Patient> getAllPatients() {
-        return patientService.getAllPatients();
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_ACCOUNTANT')")
+    public ResponseEntity<List<Patient>> getAllPatients() {
+        return ResponseEntity.ok(patientService.getAllPatients());
     }
 }

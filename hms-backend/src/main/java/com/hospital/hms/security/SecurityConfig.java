@@ -37,6 +37,14 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/auth/**", "/error").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/patients/**").hasAnyAuthority(
+                    "ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE", "ACCOUNTANT",
+                    "ROLE_ADMIN", "ROLE_DOCTOR", "ROLE_RECEPTIONIST", "ROLE_NURSE", "ROLE_ACCOUNTANT"
+                )
+                .requestMatchers(HttpMethod.POST, "/api/patients/**").hasAnyAuthority(
+                    "ADMIN", "RECEPTIONIST", "DOCTOR",
+                    "ROLE_ADMIN", "ROLE_RECEPTIONIST", "ROLE_DOCTOR"
+                )
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
@@ -55,7 +63,7 @@ public class SecurityConfig {
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

@@ -43,30 +43,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 3. Extract the token (remove "Bearer " prefix)
-        jwt = authHeader.substring(7);
-        
-        // 4. Extract the username from the token
-        username = jwtService.extractUsername(jwt);
-
-        // 5. If username exists and user is not already authenticated
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        try {
+            // 3. Extract the token (remove "Bearer " prefix)
+            jwt = authHeader.substring(7);
             
-            // 6. Load user details from database
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+            // 4. Extract the username from the token
+            username = jwtService.extractUsername(jwt);
 
-            // 7. Validate token
-            if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+            // 5. If username exists and user is not already authenticated
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 
-                // 8. Create authentication object and set it in the security context
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                // 6. Load user details from database
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+
+                // 7. Validate token
+                if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+                    
+                    // 8. Create authentication object and set it in the security context
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (Exception e) {
+            logger.error("Could not set user authentication in security context: " + e.getMessage());
         }
         
         // 9. Continue to the next filter
