@@ -38,8 +38,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/auth/**", "/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/patients/**").hasAnyAuthority(
-                    "ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE", "ACCOUNTANT",
-                    "ROLE_ADMIN", "ROLE_DOCTOR", "ROLE_RECEPTIONIST", "ROLE_NURSE", "ROLE_ACCOUNTANT"
+                    "ADMIN", "DOCTOR", "RECEPTIONIST", "NURSE", "ACCOUNTANT", "PATIENT",
+                    "ROLE_ADMIN", "ROLE_DOCTOR", "ROLE_RECEPTIONIST", "ROLE_NURSE", "ROLE_ACCOUNTANT", "ROLE_PATIENT"
                 )
                 .requestMatchers(HttpMethod.POST, "/api/patients/**").hasAnyAuthority(
                     "ADMIN", "RECEPTIONIST", "DOCTOR",

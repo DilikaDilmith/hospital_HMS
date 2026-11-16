@@ -30,7 +30,7 @@ public class PatientController {
 
     // Endpoint to get a list of all patients (GET request)
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_ACCOUNTANT', 'ROLE_PATIENT')")
     public ResponseEntity<List<Patient>> getAllPatients() {
         return ResponseEntity.ok(patientService.getAllPatients());
     }

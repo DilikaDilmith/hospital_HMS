@@ -51,7 +51,7 @@ public class DoctorController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_PATIENT')")
     public List<Doctor> getAllDoctors() {
         return doctorService.getAllDoctors();
     }

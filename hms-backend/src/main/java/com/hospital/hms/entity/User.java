@@ -1,5 +1,6 @@
 package com.hospital.hms.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,6 +17,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class User implements UserDetails {
 
     @Id
@@ -32,11 +34,11 @@ public class User implements UserDetails {
     private String fullName;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     private Role role;
 
-    // New field to track if the user is approved by Admin
-    @Column(nullable = false)
+    // Field to track if the user is approved by Admin
+    @Column(nullable = false, length = 50)
     private String status; // "PENDING", "APPROVED", "REJECTED"
 
     // --- Spring Security UserDetails Methods ---
@@ -47,9 +49,8 @@ public class User implements UserDetails {
             return List.of();
         }
         return List.of(
-            new SimpleGrantedAuthority(role.name()),
-            new SimpleGrantedAuthority("ROLE_" + role.name())
-        );
+                new SimpleGrantedAuthority(role.name()),
+                new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
     @Override

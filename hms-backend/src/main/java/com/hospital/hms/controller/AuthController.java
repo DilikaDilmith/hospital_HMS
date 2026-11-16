@@ -64,21 +64,47 @@ public class AuthController {
 
     // Endpoint to handle new user registration (Signup)
     @PostMapping("/signup")
-    public String registerUser(@RequestBody User user) {
-        
-        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
-            return "Username already exists!";
-        }
+    public ResponseEntity<?> registerUser(@RequestBody User user) {
+        try {
+            if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Username is required!");
+            }
+            if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Password is required!");
+            }
 
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        
-        if (user.getRole() == Role.PATIENT) {
-            user.setStatus("APPROVED");
-        } else {
-            user.setStatus("PENDING");
-        }
+            String username = user.getUsername().trim();
+            if (userRepository.findByUsername(username).isPresent()) {
+                return ResponseEntity.ok("Username already exists!");
+            }
 
-        userRepository.save(user);
-        return "User registered successfully! Awaiting Admin Approval (if staff).";
+            user.setUsername(username);
+            if (user.getFullName() != null) {
+                user.setFullName(user.getFullName().trim());
+            } else {
+                user.setFullName(username);
+            }
+
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            
+            if (user.getRole() == null) {
+                user.setRole(Role.PATIENT);
+            }
+
+            if (user.getRole() == Role.PATIENT) {
+                user.setStatus("APPROVED");
+            } else {
+                user.setStatus("PENDING");
+            }
+
+            userRepository.save(user);
+            System.out.println("✅ User registered successfully: " + user.getUsername() + " with role: " + user.getRole() + " and status: " + user.getStatus());
+            return ResponseEntity.ok("User registered successfully! Awaiting Admin Approval (if staff).");
+        } catch (Exception e) {
+            System.err.println("❌ Registration error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Registration failed: " + e.getMessage());
+        }
     }
 }

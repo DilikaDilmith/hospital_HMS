@@ -8,6 +8,7 @@ import com.hospital.hms.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
@@ -16,8 +17,19 @@ import java.time.LocalDate;
 public class DataInitializer {
 
     @Bean
-    CommandLineRunner initDatabase(UserRepository userRepository, PatientRepository patientRepository, PasswordEncoder passwordEncoder) {
+    CommandLineRunner initDatabase(UserRepository userRepository, PatientRepository patientRepository, PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate) {
         return args -> {
+            // 0. Ensure MySQL 'users' table columns are VARCHAR so any Enum value like PATIENT is valid
+            try {
+                jdbcTemplate.execute("ALTER TABLE users MODIFY COLUMN role VARCHAR(50) NOT NULL");
+            } catch (Exception e) {
+                // Table might not exist or already updated
+            }
+            try {
+                jdbcTemplate.execute("ALTER TABLE users MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'PENDING'");
+            } catch (Exception e) {
+                // Table might not exist or already updated
+            }
             // 1. Ensure default "admin" user exists and is APPROVED
             userRepository.findByUsername("admin").ifPresentOrElse(
                 admin -> {

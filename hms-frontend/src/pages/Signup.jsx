@@ -238,8 +238,18 @@ function Signup() {
             }
         } catch (err) {
             setIsLoading(false);
-            if (err.response && err.response.data && typeof err.response.data === 'string') {
-                setError(err.response.data);
+            if (err.response && err.response.data) {
+                if (typeof err.response.data === 'string') {
+                    setError(err.response.data);
+                } else if (err.response.data.message) {
+                    setError(err.response.data.message);
+                } else if (err.response.data.error) {
+                    setError(err.response.data.error);
+                } else {
+                    setError('Registration failed. Please check your details and try again.');
+                }
+            } else if (err.message) {
+                setError(err.message);
             } else {
                 setError('Registration failed. Please verify the backend service is running and try again.');
             }

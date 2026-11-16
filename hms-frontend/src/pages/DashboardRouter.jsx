@@ -3,6 +3,7 @@ import DoctorDashboard from './doctor/Dashboard';
 import LabStaffDashboard from './labstaff/Dashboard';
 import PharmacistDashboard from './pharmacist/Dashboard';
 import ReceptionistDashboard from './receptionist/Dashboard';
+import PatientDashboard from './patient/Dashboard';
 
 function DashboardRouter() {
     const role = localStorage.getItem('role');
@@ -13,6 +14,7 @@ function DashboardRouter() {
     if (role === 'LAB_STAFF') return <LabStaffDashboard />;
     if (role === 'PHARMACIST') return <PharmacistDashboard />;
     if (role === 'RECEPTIONIST') return <ReceptionistDashboard />;
+    if (role === 'PATIENT') return <PatientDashboard />;
 
     
     return <h1 className="text-2xl font-bold p-10">Welcome to HMS</h1>;

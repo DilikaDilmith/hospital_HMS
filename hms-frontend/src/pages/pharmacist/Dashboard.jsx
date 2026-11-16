@@ -1,12 +1,41 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { FaPrescription, FaPills } from 'react-icons/fa';
+import { FaPrescription, FaPills, FaUserCircle } from 'react-icons/fa';
 
 function PharmacistDashboard() {
+    const [user, setUser] = useState(null);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const fetchUser = async () => {
+            try {
+                const res = await axios.get('http://localhost:8080/api/users/profile', config);
+                setUser(res.data);
+            } catch (error) { console.error(error); }
+        };
+        fetchUser();
+    }, []);
+
     return (
         <div className="pb-10">
-            <div className="mb-8">
-                <h2 className="text-3xl font-extrabold text-gray-800">Pharmacy Dashboard</h2>
-                <p className="text-gray-500 mt-1">Manage your prescriptions and stock here.</p>
+            {/* Profile Banner */}
+            <div className="mb-8 bg-gradient-to-r from-orange-500 to-amber-500 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <FaUserCircle size={60} className="text-orange-200" />
+                    <div>
+                        <h2 className="text-2xl font-extrabold">
+                            Welcome, {user ? user.fullName : 'Pharmacist'}
+                        </h2>
+                        <p className="text-orange-100 text-sm mt-1">
+                            Logged in as: <span className="font-bold text-white bg-orange-700 px-2 py-0.5 rounded">{user ? user.role : '...'}</span>
+                        </p>
+                    </div>
+                </div>
+                <Link to="/profile" className="bg-white text-orange-600 px-5 py-2 rounded-lg font-bold hover:bg-gray-100 transition shadow-md">
+                    View Full Profile
+                </Link>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">

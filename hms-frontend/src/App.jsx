@@ -7,8 +7,9 @@ import Signup from './pages/Signup';
 // Layout
 import Layout from './components/common/Layout';
 
-// --- මේක තමයි අපේ මැජික් එක (Role එක බලලා ඩෑෂ්බෝඩ් එක පෙන්නනවා) ---
 import DashboardRouter from './pages/DashboardRouter'; 
+
+import ProfileRouter from './pages/ProfileRouter';
 
 // Admin Pages
 import Patients from './pages/admin/Patients';
@@ -32,6 +33,11 @@ import PharmacistPrescriptions from './pages/pharmacist/Prescriptions';
 // Receptionist Pages
 import ReceptionistDashboard from './pages/receptionist/Dashboard';
 
+// Patient Pages
+import PatientDashboard from './pages/patient/Dashboard';   
+import BookAppointment from './pages/patient/BookAppointment';
+import MedicalRecords from './pages/patient/MedicalRecords';
+import LabResults from './pages/patient/LabResults';
 
 function App() {
   return (
@@ -45,6 +51,7 @@ function App() {
         <Route element={<Layout />}>
           
           <Route path="/dashboard" element={<DashboardRouter />} />
+          <Route path="/profile" element={<ProfileRouter />} />
           
           {/* Admin Specific Routes */}
           <Route path="/admin/approvals" element={<UserApprovals />} />
@@ -70,7 +77,12 @@ function App() {
           <Route path="/receptionist/patients" element={<Patients />} />
           <Route path="/receptionist/appointments" element={<Appointments />} />
           <Route path="/receptionist/billing" element={<Billing />} />
-
+ 
+          {/* Patient Specific Routes */}
+          <Route path="/patient/dashboard" element={<PatientDashboard />} />
+          <Route path="/patient/book-appointment" element={<BookAppointment />} />
+          <Route path="/patient/medical-records" element={<MedicalRecords />} /> 
+          <Route path="/patient/lab-results" element={<LabResults />} /> 
         </Route>
 
         {/* Catch all - redirect to login */}

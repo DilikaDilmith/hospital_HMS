@@ -9,7 +9,8 @@ import {
     FaUserMd, 
     FaBuilding, 
     FaPills, 
-    FaMoneyBill 
+    FaMoneyBill,
+    FaUserCircle 
 } from 'react-icons/fa';
 
 function AdminDashboard() {
@@ -21,30 +22,61 @@ function AdminDashboard() {
         totalRevenue: 0
     });
 
+    // State to hold the logged-in user's profile data
+    const [user, setUser] = useState(null);
+
     // Fetch data from backend when component loads
     useEffect(() => {
+        const token = localStorage.getItem('token');
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+
+        // 1. Fetch dashboard statistics
         const fetchStats = async () => {
-            const token = localStorage.getItem('token');
             try {
-                const response = await axios.get('http://localhost:8080/api/dashboard', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const response = await axios.get('http://localhost:8080/api/dashboard', config);
                 setStats(response.data);
             } catch (error) {
                 console.error("Error fetching dashboard stats", error);
             }
         };
+
+        // 2. Fetch logged-in user's profile details
+        const fetchUser = async () => {
+            try {
+                const res = await axios.get('http://localhost:8080/api/users/profile', config);
+                setUser(res.data);
+            } catch (error) {
+                console.error("Error fetching profile", error);
+            }
+        };
+
         fetchStats();
+        fetchUser();
     }, []);
 
     return (
         <div className="pb-10">
-            {/* 1. Welcome Header */}
-            <div className="mb-8">
-                <h2 className="text-3xl font-extrabold text-gray-800">Admin Dashboard</h2>
-                <p className="text-gray-500 mt-1">
-                    Logged in as: <span className="font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded">ADMIN</span>
-                </p>
+            {/* 1. Profile Banner (Welcome Section) */}
+            <div className="mb-8 bg-gradient-to-r from-blue-700 to-indigo-600 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <FaUserCircle size={60} className="text-blue-200" />
+                    <div>
+                        <h2 className="text-2xl font-extrabold">
+                            Welcome back, {user ? user.fullName : 'Loading...'}
+                        </h2>
+                        <p className="text-blue-100 text-sm mt-1">
+                            You are logged in as: <span className="font-bold text-white bg-blue-500 px-2 py-0.5 rounded">{user ? user.role : '...'}</span>
+                        </p>
+                    </div>
+                </div>
+                
+                {/* Button to go to Profile Page */}
+                <Link 
+                    to="/profile" 
+                    className="bg-white text-blue-700 px-5 py-2 rounded-lg font-bold hover:bg-gray-100 transition shadow-md"
+                >
+                    View Full Profile
+                </Link>
             </div>
             
             {/* 2. Statistics Summary Cards */}

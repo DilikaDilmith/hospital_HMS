@@ -10,6 +10,7 @@ import {
   FaBuilding,
   FaUserShield,
   FaPrescription,
+  FaCalendarPlus,
 } from "react-icons/fa";
 import { useNavigate, Outlet, Link } from "react-router-dom";
 
@@ -150,6 +151,18 @@ function Layout() {
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
               >
                 <FaMoneyBill /> Billing
+              </Link>
+            </>
+          )}
+
+          {/* PATIENT ROUTES */}
+          {role === "PATIENT" && (
+            <>
+              <Link
+                to="/patient/book-appointment"
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
+              >
+                <FaCalendarPlus /> Book Appointment
               </Link>
             </>
           )}
