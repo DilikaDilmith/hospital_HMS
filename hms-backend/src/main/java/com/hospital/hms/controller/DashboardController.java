@@ -15,9 +15,9 @@ public class DashboardController {
     @Autowired
     private DashboardService dashboardService;
 
-    // Endpoint to retrieve dashboard statistics (Only Admin and Doctor can access)
+    // Endpoint to retrieve dashboard statistics (Allow all staff roles)
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'PHARMACIST', 'NURSE', 'LAB_STAFF', 'RECEPTIONIST', 'ACCOUNTANT')")
     public DashboardResponse getDashboardStats() {
         return dashboardService.getDashboardStats();
     }

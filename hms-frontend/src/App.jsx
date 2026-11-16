@@ -4,11 +4,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 
-// Layout Component
+// Layout
 import Layout from './components/common/Layout';
 
+// --- මේක තමයි අපේ මැජික් එක (Role එක බලලා ඩෑෂ්බෝඩ් එක පෙන්නනවා) ---
+import DashboardRouter from './pages/DashboardRouter'; 
+
 // Admin Pages
-import Dashboard from './pages/admin/Dashboard';
 import Patients from './pages/admin/Patients';
 import Doctors from './pages/admin/Doctors';
 import Departments from './pages/admin/Departments';
@@ -19,20 +21,30 @@ import UserApprovals from './pages/admin/UserApprovals';
 
 // Doctor Pages
 import DoctorAppointments from './pages/doctor/Appointments';
+import DoctorLabRequests from './pages/doctor/LabRequests';
+
+// Lab Staff Pages
+import LabTests from './pages/labstaff/LabTests';
+
+// Pharmacist Pages
+import PharmacistPrescriptions from './pages/pharmacist/Prescriptions';
+
+// Receptionist Pages
+import ReceptionistDashboard from './pages/receptionist/Dashboard';
+
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 1. Public Routes (No Sidebar, No Navbar) */}
+        {/* Public Routes */}
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         
-        {/* 2. Protected Routes (Wrapped inside Layout with Sidebar & Navbar) */}
+        {/* Protected Routes inside Layout */}
         <Route element={<Layout />}>
           
-          {/* Common Routes for All Logged-in Users */}
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<DashboardRouter />} />
           
           {/* Admin Specific Routes */}
           <Route path="/admin/approvals" element={<UserApprovals />} />
@@ -45,10 +57,23 @@ function App() {
 
           {/* Doctor Specific Routes */}
           <Route path="/doctor/appointments" element={<DoctorAppointments />} />
+          <Route path="/doctor/lab-requests" element={<DoctorLabRequests />} />
+
+          {/* Lab Staff Specific Routes */}
+          <Route path="/lab/tests" element={<LabTests />} />
+
+          {/* Pharmacist Specific Routes */}
+          <Route path="/pharmacist/prescriptions" element={<PharmacistPrescriptions />} />
+
+          {/* Receptionist Specific Routes (Reusing existing components for now) */}
+          <Route path="/receptionist/dashboard" element={<ReceptionistDashboard />} />
+          <Route path="/receptionist/patients" element={<Patients />} />
+          <Route path="/receptionist/appointments" element={<Appointments />} />
+          <Route path="/receptionist/billing" element={<Billing />} />
 
         </Route>
 
-        {/* 3. Catch-all Route: Redirects unknown URLs to Login */}
+        {/* Catch all - redirect to login */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>

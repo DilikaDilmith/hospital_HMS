@@ -20,11 +20,21 @@ public class MedicalRecordService {
         if (record.getRecordDate() == null) {
             record.setRecordDate(LocalDateTime.now());
         }
+        // Set default status to PENDING when a doctor creates it
+        record.setStatus("PENDING"); 
         return medicalRecordRepository.save(record);
     }
 
     // Get all medical records
     public List<MedicalRecord> getAllRecords() {
         return medicalRecordRepository.findAll();
+    }
+
+    // Update the status of a medical record to DISPENSED
+    public MedicalRecord dispenseRecord(Long id) {
+        MedicalRecord record = medicalRecordRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Record not found with id: " + id));
+        record.setStatus("DISPENSED");
+        return medicalRecordRepository.save(record);
     }
 }

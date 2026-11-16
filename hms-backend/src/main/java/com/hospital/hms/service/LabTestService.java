@@ -27,4 +27,13 @@ public class LabTestService {
     public List<LabTest> getAllTests() {
         return labTestRepository.findAll();
     }
+
+    // Mark a lab test as completed
+        public LabTest completeTest(Long id, String result) {
+        LabTest test = labTestRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Test not found with id: " + id));
+        test.setResult(result);
+        test.setStatus("COMPLETED");
+        return labTestRepository.save(test);
+    }
 }

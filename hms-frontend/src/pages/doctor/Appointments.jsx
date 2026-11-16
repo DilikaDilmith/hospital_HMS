@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaCalendarCheck, FaNotesMedical } from 'react-icons/fa';
+import { FaCalendarCheck, FaNotesMedical, FaFlask } from 'react-icons/fa';
 import AddEMRModal from '../../components/doctor/AddEMRModal';
+import AddLabTestModal from './AddLabTestModal';
 
 function DoctorAppointments() {
     const [appointments, setAppointments] = useState([]);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
-    const [showModal, setShowModal] = useState(false);
+    
+    // Modals state
+    const [showEMRModal, setShowEMRModal] = useState(false);
+    const [showLabModal, setShowLabModal] = useState(false);
 
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -14,8 +18,6 @@ function DoctorAppointments() {
     const fetchAppointments = async () => {
         try {
             const response = await axios.get('http://localhost:8080/api/appointments', config);
-            // For now, let's show all appointments. 
-            // (In a real app, we would filter this by the logged-in doctor's ID)
             setAppointments(response.data);
         } catch (error) {
             console.error("Error fetching appointments:", error);
@@ -28,7 +30,12 @@ function DoctorAppointments() {
 
     const handleOpenEMR = (appointment) => {
         setSelectedAppointment(appointment);
-        setShowModal(true);
+        setShowEMRModal(true);
+    };
+
+    const handleOpenLabTest = (appointment) => {
+        setSelectedAppointment(appointment);
+        setShowLabModal(true);
     };
 
     return (
@@ -47,7 +54,6 @@ function DoctorAppointments() {
                             <th className="p-4 font-semibold text-gray-600">Patient</th>
                             <th className="p-4 font-semibold text-gray-600">Date & Time</th>
                             <th className="p-4 font-semibold text-gray-600">Reason</th>
-                            <th className="p-4 font-semibold text-gray-600">Status</th>
                             <th className="p-4 font-semibold text-gray-600">Action</th>
                         </tr>
                     </thead>
@@ -63,24 +69,28 @@ function DoctorAppointments() {
                                         {new Date(appt.appointmentDateTime).toLocaleString()}
                                     </td>
                                     <td className="p-4 text-gray-600">{appt.reason}</td>
-                                    <td className="p-4">
-                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">
-                                            {appt.status}
-                                        </span>
-                                    </td>
-                                    <td className="p-4">
+                                    <td className="p-4 flex gap-2">
+                                        {/* Add Record Button */}
                                         <button 
                                             onClick={() => handleOpenEMR(appt)}
                                             className="bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1 rounded-lg flex items-center gap-2 transition text-sm font-medium"
                                         >
-                                            <FaNotesMedical /> Add Record
+                                            <FaNotesMedical /> EMR
+                                        </button>
+                                        
+                                        {/* Request Lab Test Button */}
+                                        <button 
+                                            onClick={() => handleOpenLabTest(appt)}
+                                            className="bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white px-3 py-1 rounded-lg flex items-center gap-2 transition text-sm font-medium"
+                                        >
+                                            <FaFlask /> Lab Test
                                         </button>
                                     </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" className="p-8 text-center text-gray-500">
+                                <td colSpan="5" className="p-8 text-center text-gray-500">
                                     No appointments scheduled.
                                 </td>
                             </tr>
@@ -89,14 +99,19 @@ function DoctorAppointments() {
                 </table>
             </div>
 
-            {showModal && selectedAppointment && (
+            {showEMRModal && selectedAppointment && (
                 <AddEMRModal 
                     appointment={selectedAppointment}
-                    onClose={() => setShowModal(false)} 
-                    onRecordAdded={() => {
-                        fetchAppointments();
-                        // You can add a success toast here later
-                    }} 
+                    onClose={() => setShowEMRModal(false)} 
+                    onRecordAdded={fetchAppointments} 
+                />
+            )}
+
+            {showLabModal && selectedAppointment && (
+                <AddLabTestModal 
+                    appointment={selectedAppointment}
+                    onClose={() => setShowLabModal(false)} 
+                    onTestRequested={fetchAppointments} 
                 />
             )}
         </div>

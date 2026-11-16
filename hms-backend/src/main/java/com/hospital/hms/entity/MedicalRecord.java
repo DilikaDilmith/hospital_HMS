@@ -33,6 +33,8 @@ public class MedicalRecord {
     // Date and time when the record was created
     private LocalDateTime recordDate;
 
+    private String status; // "PENDING" or "DISPENSED"
+
     // The patient this record belongs to
     @ManyToOne
     @JoinColumn(name = "patient_id", referencedColumnName = "id")
@@ -42,4 +44,6 @@ public class MedicalRecord {
     @ManyToOne
     @JoinColumn(name = "doctor_id", referencedColumnName = "id")
     private Doctor doctor;
+
+    
 }
