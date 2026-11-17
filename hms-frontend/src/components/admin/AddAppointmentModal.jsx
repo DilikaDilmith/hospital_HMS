@@ -190,6 +190,25 @@ function AddAppointmentModal({ onClose, onAppointmentAdded }) {
                                             No active doctors found in system.
                                         </p>
                                     )}
+                                    {appointmentData.doctorId && doctors.find(d => d.id === parseInt(appointmentData.doctorId, 10)) && (() => {
+                                        const doc = doctors.find(d => d.id === parseInt(appointmentData.doctorId, 10));
+                                        const formatDays = (days) => {
+                                            if (!days) return 'Mon-Fri';
+                                            if (days.split(',').length === 7) return 'All Days';
+                                            return days;
+                                        };
+                                        return (
+                                            <div className="mt-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
+                                                <div className="flex justify-between font-medium">
+                                                    <span>Available Days: {formatDays(doc.availableDays)}</span>
+                                                    <span className="text-emerald-700 font-bold">Fee: LKR {doc.consultationFee ? doc.consultationFee.toFixed(2) : '1,500.00'}</span>
+                                                </div>
+                                                <div className="text-gray-600 mt-0.5">
+                                                    Hours: {doc.availableTimeStart ? doc.availableTimeStart.substring(0, 5) : '08:00'} - {doc.availableTimeEnd ? doc.availableTimeEnd.substring(0, 5) : '17:00'}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 

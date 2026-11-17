@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaPlus, FaUserInjured, FaSearch, FaSpinner, FaExclamationCircle, FaSync } from 'react-icons/fa';
+import { FaPlus, FaUserInjured, FaSearch, FaSpinner, FaExclamationCircle, FaSync, FaFolderOpen } from 'react-icons/fa';
 import AddPatientModal from '../../components/admin/AddPatientModal';
+import PatientDocumentsModal from '../../components/admin/PatientDocumentsModal';
 
 function Patients() {
     const [patients, setPatients] = useState([]);
     const [showModal, setShowModal] = useState(false);
+    const [selectedPatientForDocs, setSelectedPatientForDocs] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -153,12 +155,13 @@ function Patients() {
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Gender</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Phone</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Address</th>
+                                <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="p-12 text-center text-gray-500">
+                                    <td colSpan="8" className="p-12 text-center text-gray-500">
                                         <FaSpinner className="animate-spin inline mr-2 text-blue-600" size={20} />
                                         Loading patients from database...
                                     </td>
@@ -185,11 +188,21 @@ function Patients() {
                                         </td>
                                         <td className="p-4 text-xs text-gray-700 font-medium">{patient.phoneNumber}</td>
                                         <td className="p-4 text-xs text-gray-500 max-w-xs truncate">{patient.address || '-'}</td>
+                                        <td className="p-4 text-right">
+                                            <button
+                                                onClick={() => setSelectedPatientForDocs(patient)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition"
+                                                title="View & Upload Patient Documents"
+                                            >
+                                                <FaFolderOpen size={13} />
+                                                <span>Documents</span>
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="7" className="p-12 text-center text-gray-500">
+                                    <td colSpan="8" className="p-12 text-center text-gray-500">
                                         {searchQuery ? (
                                             <div>
                                                 <p className="font-semibold text-gray-700">No matching patients found.</p>
@@ -210,11 +223,19 @@ function Patients() {
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Add Patient Modal */}
             {showModal && (
                 <AddPatientModal 
                     onClose={() => setShowModal(false)} 
                     onPatientAdded={fetchPatients} 
+                />
+            )}
+
+            {/* Patient Documents Modal */}
+            {selectedPatientForDocs && (
+                <PatientDocumentsModal
+                    patient={selectedPatientForDocs}
+                    onClose={() => setSelectedPatientForDocs(null)}
                 />
             )}
         </div>

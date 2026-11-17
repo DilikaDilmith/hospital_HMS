@@ -6,6 +6,8 @@ import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.UserRepository;
 import com.hospital.hms.service.DoctorService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -26,7 +28,7 @@ public class DoctorController {
     private PasswordEncoder passwordEncoder;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
     public Doctor createDoctor(@RequestBody Doctor doctor) {
         
         // 1. Save the doctor profile first
@@ -54,5 +56,28 @@ public class DoctorController {
     @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_PATIENT')")
     public List<Doctor> getAllDoctors() {
         return doctorService.getAllDoctors();
+    }
+
+    // Retrieve single doctor by ID
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_PATIENT')")
+    public ResponseEntity<?> getDoctorById(@PathVariable Long id) {
+        return doctorService.getDoctorById(id)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("Doctor not found with ID: " + id));
+    }
+
+    // Update doctor details, contact info, consultation fee, department and availability (Admin only)
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<?> updateDoctor(@PathVariable Long id, @RequestBody Doctor doctorDetails) {
+        try {
+            Doctor updated = doctorService.updateDoctor(id, doctorDetails);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to update doctor: " + e.getMessage());
+        }
     }
 }

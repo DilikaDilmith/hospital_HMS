@@ -40,10 +40,17 @@ public class Appointment {
     @JoinColumn(name = "doctor_id", referencedColumnName = "id")
     private Doctor doctor;
 
+    // Tracks whether consultation fee has been billed for this appointment
+    @Column(name = "is_billed", nullable = false)
+    private Boolean isBilled = false;
+
     @PrePersist
     protected void onCreate() {
         if (this.status == null) {
             this.status = AppointmentStatus.SCHEDULED;
+        }
+        if (this.isBilled == null) {
+            this.isBilled = false;
         }
     }
 }

@@ -61,6 +61,9 @@ public class Admission {
     // Total bed accommodation charges billed upon discharge
     private Double totalBedCharge;
 
+    @Column(nullable = false)
+    private Boolean isBilled = false;
+
     @PrePersist
     protected void onCreate() {
         if (this.admissionDate == null) {
@@ -68,6 +71,9 @@ public class Admission {
         }
         if (this.status == null) {
             this.status = AdmissionStatus.ADMITTED;
+        }
+        if (this.isBilled == null) {
+            this.isBilled = false;
         }
     }
 }

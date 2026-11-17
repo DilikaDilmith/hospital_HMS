@@ -1,5 +1,6 @@
 package com.hospital.hms.service;
 
+import com.hospital.hms.entity.Appointment;
 import com.hospital.hms.entity.Doctor;
 import com.hospital.hms.entity.Invoice;
 import com.hospital.hms.entity.InvoiceItem;
@@ -42,6 +43,11 @@ public class InvoiceService {
         return invoiceRepository.findByPatientIdOrderByDateDesc(patientId);
     }
 
+    // Retrieve all invoices for an authenticated patient by username
+    public List<Invoice> getInvoicesByPatientUsername(String username) {
+        return invoiceRepository.findByPatientUserUsernameOrderByDateDesc(username);
+    }
+
     // Create a new invoice
     @Transactional
     public Invoice createInvoice(Invoice invoice) {
@@ -77,21 +83,60 @@ public class InvoiceService {
         return invoiceRepository.save(invoice);
     }
 
-    // Mark an invoice as PAID
+    // Mark an invoice as PAID with recorded payment details
     @Transactional
     public Invoice markInvoiceAsPaid(Long invoiceId) {
+        return markInvoiceAsPaid(invoiceId, "CASH / COUNTER");
+    }
+
+    @Transactional
+    public Invoice markInvoiceAsPaid(Long invoiceId, String paymentMethod) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + invoiceId));
 
         invoice.setStatus("PAID");
+        if (invoice.getPaidAt() == null) {
+            invoice.setPaidAt(LocalDateTime.now());
+        }
+        invoice.setPaymentMethod(paymentMethod != null && !paymentMethod.trim().isEmpty() ? paymentMethod.trim() : "CASH / COUNTER");
         return invoiceRepository.save(invoice);
     }
 
-    // Automatically add a Doctor's Consultation Fee to the patient's active (UNPAID) invoice
+    // Automatically add a Doctor's Consultation Fee for a specific Appointment with idempotency
     @Transactional
-    public Invoice addConsultationFee(Patient patient, Doctor doctor) {
+    public Invoice addConsultationFee(Appointment appointment) {
+        if (appointment == null) {
+            throw new IllegalArgumentException("Appointment cannot be null for consultation fee.");
+        }
+        if (appointment.getPatient() == null) {
+            throw new IllegalArgumentException("Appointment patient cannot be null for consultation fee.");
+        }
+        if (appointment.getDoctor() == null) {
+            throw new IllegalArgumentException("Appointment doctor cannot be null for consultation fee.");
+        }
+
+        // Idempotency check: verify this appointment hasn't already been billed
+        if (appointment.getId() != null && invoiceItemRepository.existsByReferenceTypeAndReferenceId("APPOINTMENT", appointment.getId())) {
+            System.out.println("⚠️ Consultation fee already billed for Appointment #" + appointment.getId() + ". Skipping duplicate charge.");
+            return invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(appointment.getPatient().getId(), "UNPAID")
+                    .orElse(null);
+        }
+
+        return addConsultationFee(appointment.getPatient(), appointment.getDoctor(), appointment.getId());
+    }
+
+    // Add consultation fee for a patient & doctor with originating appointmentId
+    @Transactional
+    public Invoice addConsultationFee(Patient patient, Doctor doctor, Long appointmentId) {
         if (patient == null || patient.getId() == null) {
             throw new IllegalArgumentException("Patient cannot be null for consultation fee.");
+        }
+
+        // Idempotency check: verify this appointment hasn't already been billed
+        if (appointmentId != null && invoiceItemRepository.existsByReferenceTypeAndReferenceId("APPOINTMENT", appointmentId)) {
+            System.out.println("⚠️ Consultation fee already billed for Appointment #" + appointmentId + ". Skipping duplicate charge.");
+            return invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
+                    .orElse(null);
         }
 
         // Find or create active UNPAID invoice for patient
@@ -114,11 +159,17 @@ public class InvoiceService {
                 ? "Dr. " + doctor.getFirstName() + " " + doctor.getLastName() + (doctor.getSpecialization() != null ? " (" + doctor.getSpecialization() + ")" : "")
                 : "Attending Physician";
 
+        String desc = (appointmentId != null)
+                ? "Consultation Fee - " + doctorInfo + " (Appointment #" + appointmentId + ")"
+                : "Consultation Fee - " + doctorInfo;
+
         InvoiceItem consultationItem = new InvoiceItem();
         consultationItem.setInvoice(invoice);
         consultationItem.setCategory("CONSULTATION");
-        consultationItem.setDescription("Consultation Fee - " + doctorInfo);
+        consultationItem.setDescription(desc);
         consultationItem.setAmount(fee);
+        consultationItem.setReferenceType("APPOINTMENT");
+        consultationItem.setReferenceId(appointmentId);
         consultationItem.setCreatedAt(LocalDateTime.now());
 
         invoice.addItem(consultationItem);
@@ -127,11 +178,27 @@ public class InvoiceService {
         return saved;
     }
 
-    // Automatically add a Laboratory Test Fee to the patient's active (UNPAID) invoice
+    // Automatically add a Doctor's Consultation Fee to the patient's active (UNPAID) invoice (backward compatibility)
+    @Transactional
+    public Invoice addConsultationFee(Patient patient, Doctor doctor) {
+        return addConsultationFee(patient, doctor, null);
+    }
+
+    // Automatically add a Laboratory Test Fee to the patient's active (UNPAID) invoice with idempotency
     @Transactional
     public Invoice addLabFee(Patient patient, com.hospital.hms.entity.LabTest labTest) {
         if (patient == null || patient.getId() == null) {
             throw new IllegalArgumentException("Patient cannot be null for lab test fee.");
+        }
+        if (labTest == null) {
+            throw new IllegalArgumentException("Lab test cannot be null for lab test fee.");
+        }
+
+        // Idempotency check: verify this lab test hasn't already been billed
+        if (labTest.getId() != null && invoiceItemRepository.existsByReferenceTypeAndReferenceId("LAB_TEST", labTest.getId())) {
+            System.out.println("⚠️ Lab fee already billed for LabTest #" + labTest.getId() + ". Skipping duplicate charge.");
+            return invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
+                    .orElse(null);
         }
 
         Invoice invoice = invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
@@ -144,19 +211,25 @@ public class InvoiceService {
                     return invoiceRepository.save(newInv);
                 });
 
-        Double fee = (labTest != null && labTest.getTestFee() != null && labTest.getTestFee() > 0)
+        Double fee = (labTest.getTestFee() != null && labTest.getTestFee() > 0)
                 ? labTest.getTestFee()
                 : 2500.0;
 
-        String testName = (labTest != null && labTest.getTestName() != null)
+        String testName = (labTest.getTestName() != null)
                 ? labTest.getTestName()
                 : "Diagnostic Lab Test";
+
+        String desc = (labTest.getId() != null)
+                ? "Laboratory Test - " + testName + " (Test #" + labTest.getId() + ")"
+                : "Laboratory Test - " + testName;
 
         InvoiceItem labItem = new InvoiceItem();
         labItem.setInvoice(invoice);
         labItem.setCategory("LAB");
-        labItem.setDescription("Laboratory Test - " + testName);
+        labItem.setDescription(desc);
         labItem.setAmount(fee);
+        labItem.setReferenceType("LAB_TEST");
+        labItem.setReferenceId(labTest.getId());
         labItem.setCreatedAt(LocalDateTime.now());
 
         invoice.addItem(labItem);
@@ -198,8 +271,21 @@ public class InvoiceService {
     // Automatically add Inpatient Ward Stay Accommodation Charge to patient's active (UNPAID) invoice
     @Transactional
     public Invoice addWardFee(Patient patient, String wardName, String bedNumber, long days, Double dailyRate, Double totalCharge) {
+        return addWardFee(patient, null, wardName, bedNumber, days, dailyRate, totalCharge);
+    }
+
+    // Overloaded with admissionId for idempotency and duplicate charge prevention
+    @Transactional
+    public Invoice addWardFee(Patient patient, Long admissionId, String wardName, String bedNumber, long days, Double dailyRate, Double totalCharge) {
         if (patient == null || patient.getId() == null) {
             throw new IllegalArgumentException("Patient cannot be null for ward charges.");
+        }
+
+        // Idempotency check: prevent duplicate charges for the same admission
+        if (admissionId != null && invoiceItemRepository.existsByReferenceTypeAndReferenceId("ADMISSION", admissionId)) {
+            System.out.println("⚠️ Ward accommodation fee already billed for Admission #" + admissionId + ". Skipping duplicate charge.");
+            return invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
+                    .orElse(null);
         }
 
         Invoice invoice = invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
@@ -215,6 +301,8 @@ public class InvoiceService {
         InvoiceItem wardItem = new InvoiceItem();
         wardItem.setInvoice(invoice);
         wardItem.setCategory("WARD");
+        wardItem.setReferenceType("ADMISSION");
+        wardItem.setReferenceId(admissionId);
         wardItem.setDescription("Inpatient Ward Stay (" + wardName + " - " + bedNumber + ") - " + days + " day(s) @ LKR " + String.format("%.2f", dailyRate) + "/day");
         wardItem.setAmount(totalCharge != null ? totalCharge : 0.0);
         wardItem.setCreatedAt(LocalDateTime.now());

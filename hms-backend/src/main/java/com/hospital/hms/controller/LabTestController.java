@@ -3,8 +3,10 @@ package com.hospital.hms.controller;
 import com.hospital.hms.entity.LabTest;
 import com.hospital.hms.service.LabTestService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,27 +31,56 @@ public class LabTestController {
         }
     }
 
-    // Endpoint to retrieve all lab tests
+    // Endpoint to retrieve all lab tests (Staff only - Patients use /my)
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'LAB_STAFF', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_LAB_STAFF')")
     public List<LabTest> getAllTests() {
         return labTestService.getAllTests();
     }
 
-    // Endpoint to retrieve single lab test by ID
+    // Endpoint for authenticated patients to retrieve their own lab test results
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyAuthority('PATIENT', 'ROLE_PATIENT')")
+    public List<LabTest> getMyLabTests(Authentication authentication) {
+        return labTestService.getTestsByPatientUsername(authentication.getName());
+    }
+
+    // Endpoint to retrieve single lab test by ID (Staff can view any; Patient can only view their own)
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'LAB_STAFF', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_LAB_STAFF', 'ROLE_PATIENT')")
-    public ResponseEntity<?> getTestById(@PathVariable Long id) {
-        return labTestService.getTestById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> getTestById(@PathVariable Long id, Authentication authentication) {
+        LabTest test = labTestService.getTestById(id).orElse(null);
+        if (test == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (isCallerPatientOnly(authentication)) {
+            if (test.getPatient() == null || test.getPatient().getUser() == null
+                    || !test.getPatient().getUser().getUsername().equals(authentication.getName())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Access denied: You are not authorized to view other patients' lab test results.");
+            }
+        }
+
+        return ResponseEntity.ok(test);
     }
 
     // Endpoint to retrieve lab tests for a patient
     @GetMapping("/patient/{patientId}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'LAB_STAFF', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_LAB_STAFF', 'ROLE_PATIENT')")
-    public List<LabTest> getTestsByPatientId(@PathVariable Long patientId) {
-        return labTestService.getTestsByPatientId(patientId);
+    public ResponseEntity<?> getTestsByPatientId(@PathVariable Long patientId, Authentication authentication) {
+        List<LabTest> list = labTestService.getTestsByPatientId(patientId);
+
+        if (isCallerPatientOnly(authentication)) {
+            boolean mismatch = list.stream().anyMatch(t -> t.getPatient() != null && t.getPatient().getUser() != null
+                    && !t.getPatient().getUser().getUsername().equals(authentication.getName()));
+            if (mismatch) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Access denied: You cannot view other patients' lab tests.");
+            }
+        }
+
+        return ResponseEntity.ok(list);
     }
 
     // Endpoint for Lab Staff to mark sample as collected (REQUESTED -> SAMPLE_COLLECTED)
@@ -59,6 +90,8 @@ public class LabTestController {
         try {
             LabTest updated = labTestService.collectSample(id);
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to mark sample collected: " + e.getMessage());
         }
@@ -75,8 +108,20 @@ public class LabTestController {
             }
             LabTest updated = labTestService.completeTest(id, result.trim());
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to complete lab test: " + e.getMessage());
         }
+    }
+
+    private boolean isCallerPatientOnly(Authentication authentication) {
+        if (authentication == null) return false;
+        boolean hasPatient = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("PATIENT") || a.getAuthority().equals("ROLE_PATIENT"));
+        boolean hasStaff = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().contains("ADMIN") || a.getAuthority().contains("DOCTOR") 
+                            || a.getAuthority().contains("LAB_STAFF"));
+        return hasPatient && !hasStaff;
     }
 }

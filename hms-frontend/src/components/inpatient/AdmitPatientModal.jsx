@@ -66,6 +66,11 @@ function AdmitPatientModal({ onClose, onPatientAdmitted }) {
             const msg = err.response?.data?.message || err.response?.data || "Failed to admit patient. Please check details.";
             setError(typeof msg === 'string' ? msg : "Admission error");
             setIsSubmitting(false);
+            // Re-fetch available beds to update dropdown if bed was claimed concurrently
+            try {
+                const bRes = await axios.get('http://localhost:8080/api/wards/beds/available', config);
+                setAvailableBeds(Array.isArray(bRes.data) ? bRes.data : []);
+            } catch (ignore) {}
         }
     };
 

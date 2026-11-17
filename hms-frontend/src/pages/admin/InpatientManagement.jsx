@@ -71,7 +71,8 @@ function InpatientManagement() {
             fetchAllData();
         } catch (err) {
             console.error("Error toggling bed status:", err);
-            alert("Failed to update bed status.");
+            const msg = err.response?.data?.message || err.response?.data || "Failed to update bed status.";
+            alert(typeof msg === 'string' ? msg : "Failed to update bed status.");
         }
     };
 

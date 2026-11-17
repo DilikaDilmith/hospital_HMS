@@ -13,15 +13,19 @@ import {
     FaListUl,
     FaArrowUp,
     FaHourglassHalf,
-    FaFilter
+    FaFilter,
+    FaPrint,
+    FaReceipt
 } from 'react-icons/fa';
 import AddInvoiceModal from '../../components/admin/AddInvoiceModal';
 import InvoiceDetailsModal from '../../components/admin/InvoiceDetailsModal';
+import PrintableInvoiceModal from '../../components/common/PrintableInvoiceModal';
 
 function Billing() {
     const [invoices, setInvoices] = useState([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [printModalData, setPrintModalData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -300,17 +304,33 @@ function Billing() {
                                             </span>
                                         </td>
                                         <td className="p-4 text-center">
-                                            <div className="flex items-center justify-center gap-2">
+                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                                 <button
                                                     onClick={() => setSelectedInvoice(inv)}
-                                                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-semibold text-xs transition"
+                                                    className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-semibold text-xs transition"
                                                 >
                                                     View Items
                                                 </button>
+                                                <button
+                                                    onClick={() => setPrintModalData({ invoice: inv, mode: 'INVOICE' })}
+                                                    className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-xs transition flex items-center gap-1"
+                                                    title="Print Invoice"
+                                                >
+                                                    <FaPrint size={11} /> Print
+                                                </button>
+                                                {inv.status === 'PAID' && (
+                                                    <button
+                                                        onClick={() => setPrintModalData({ invoice: inv, mode: 'RECEIPT' })}
+                                                        className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl font-semibold text-xs transition flex items-center gap-1"
+                                                        title="Print Payment Receipt"
+                                                    >
+                                                        <FaReceipt size={11} /> Receipt
+                                                    </button>
+                                                )}
                                                 {inv.status !== 'PAID' && (
                                                     <button
                                                         onClick={() => handleQuickPay(inv.id)}
-                                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs shadow-sm transition flex items-center gap-1"
+                                                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs shadow-sm transition flex items-center gap-1"
                                                     >
                                                         <FaCheckCircle size={10} /> Pay
                                                     </button>
@@ -361,6 +381,15 @@ function Billing() {
                             .then(res => setSelectedInvoice(res.data))
                             .catch(err => console.error(err));
                     }}
+                />
+            )}
+
+            {/* Printable Invoice / Receipt Modal */}
+            {printModalData && (
+                <PrintableInvoiceModal
+                    invoice={printModalData.invoice}
+                    mode={printModalData.mode}
+                    onClose={() => setPrintModalData(null)}
                 />
             )}
         </div>

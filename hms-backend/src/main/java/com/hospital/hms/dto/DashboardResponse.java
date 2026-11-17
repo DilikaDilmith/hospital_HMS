@@ -14,6 +14,7 @@ public class DashboardResponse {
     // 1. Core Summary Metrics
     private long totalPatients;
     private long totalAppointments;
+    private long todaysAppointments;
     private long totalLabRequests;
     private long pendingLabTests;
     private long lowStockMedicines;

@@ -59,6 +59,10 @@ public class LabTest {
     @JoinColumn(name = "doctor_id", referencedColumnName = "id")
     private Doctor doctor;
 
+    // Tracks whether lab fee has been billed for this test
+    @Column(name = "is_billed", nullable = false)
+    private Boolean isBilled = false;
+
     @PrePersist
     protected void onCreate() {
         if (this.requestedAt == null) {
@@ -69,6 +73,9 @@ public class LabTest {
         }
         if (this.testFee == null) {
             this.testFee = 2500.0;
+        }
+        if (this.isBilled == null) {
+            this.isBilled = false;
         }
     }
 }

@@ -16,6 +16,7 @@ import {
   FaHospital,
   FaUserTie,
   FaNotesMedical,
+  FaHistory,
 } from "react-icons/fa";
 import { useNavigate, Outlet, Link, useLocation } from "react-router-dom";
 
@@ -66,6 +67,9 @@ function Layout() {
               </div>
               <Link to="/admin/approvals" className={linkClass("/admin/approvals")}>
                 <FaUserShield className="text-yellow-400" /> User Approvals
+              </Link>
+              <Link to="/admin/audit-logs" className={linkClass("/admin/audit-logs")}>
+                <FaHistory className="text-indigo-400" /> Audit Logs
               </Link>
               <Link to="/admin/staff" className={linkClass("/admin/staff")}>
                 <FaUserTie className="text-indigo-400" /> Staff & HR
@@ -171,6 +175,18 @@ function Layout() {
               </Link>
               <Link to="/nurse/inpatient" className={linkClass("/nurse/inpatient")}>
                 <FaHospital className="text-pink-400" /> Inpatient Ward Roster
+              </Link>
+            </>
+          )}
+
+          {/* ACCOUNTANT ONLY ROUTES (SRS Section 2 & 3.8) */}
+          {role === "ACCOUNTANT" && (
+            <>
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Finance & Accounting
+              </div>
+              <Link to="/accountant/billing" className={linkClass("/accountant/billing")}>
+                <FaMoneyBill className="text-emerald-400" /> Itemized Billing & Invoicing
               </Link>
             </>
           )}

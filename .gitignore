@@ -1,0 +1,28 @@
+# ==========================================
+# Hospital Management System (HMS) Git Ignore
+# ==========================================
+
+# Database Backups & Archive Dumps (Never commit database dumps)
+*.sql
+*.dump
+*.tar.gz
+*.zip
+backups/
+backup-scripts/backups/
+/backups/
+/backup-scripts/backups/
+*.log
+
+# Patient Document Uploads
+uploads/
+hms-backend/uploads/
+/uploads/
+/hms-backend/uploads/
+
+# Build artifacts
+target/
+dist/
+node_modules/
+.idea/
+.vscode/
+*.iml

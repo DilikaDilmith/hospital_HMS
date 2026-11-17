@@ -14,4 +14,7 @@ public interface InvoiceItemRepository extends JpaRepository<InvoiceItem, Long> 
 
     // Retrieve line items by category
     List<InvoiceItem> findByCategory(String category);
+
+    // Check if an item has already been billed for a specific source event
+    boolean existsByReferenceTypeAndReferenceId(String referenceType, Long referenceId);
 }

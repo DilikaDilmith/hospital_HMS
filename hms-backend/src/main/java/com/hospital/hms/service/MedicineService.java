@@ -93,31 +93,51 @@ public class MedicineService {
         return savedBatch;
     }
 
-    // Dispense medicine by deducting from earliest expiring batch (FEFO) and auto-billing
+    // Dispense medicine by deducting only from valid, non-expired batches (FEFO) and auto-billing atomically
     @Transactional
     public Map<String, Object> dispenseMedicine(Long medicineId, int requestedQuantity, Patient patient) {
         if (requestedQuantity <= 0) {
             throw new IllegalArgumentException("Dispense quantity must be greater than zero.");
         }
 
-        Medicine medicine = medicineRepository.findById(medicineId)
+        // 1. Acquire pessimistic write lock on the Medicine row to serialize concurrent dispensing
+        Medicine medicine = medicineRepository.findByIdForUpdate(medicineId)
                 .orElseThrow(() -> new RuntimeException("Medicine not found with ID: " + medicineId));
 
-        if (medicine.getStockQuantity() < requestedQuantity) {
-            throw new IllegalStateException("Insufficient stock for " + medicine.getName() + ". Available: " + medicine.getStockQuantity() + ", Requested: " + requestedQuantity);
+        LocalDate today = LocalDate.now();
+
+        // 2. Fetch only valid, non-expired batches with quantity > 0, ordered by FEFO with lock
+        List<MedicineBatch> validBatches = medicineBatchRepository.findValidBatchesForDispensingForUpdate(medicineId, 0, today);
+
+        // 2. Calculate total available valid non-expired quantity
+        int totalValidStock = validBatches.stream()
+                .mapToInt(b -> b.getQuantity() != null ? b.getQuantity() : 0)
+                .sum();
+
+        if (totalValidStock == 0) {
+            throw new IllegalStateException("No valid, non-expired stock available for " + medicine.getName() + 
+                    ". All stock in inventory is either expired or depleted.");
         }
 
-        // Fetch active batches with stock > 0, ordered by earliest expiry date (FEFO)
-        List<MedicineBatch> batches = medicineBatchRepository.findByMedicineIdAndQuantityGreaterThanOrderByExpiryDateAsc(medicineId, 0);
+        if (totalValidStock < requestedQuantity) {
+            throw new IllegalStateException("Insufficient non-expired stock for " + medicine.getName() + 
+                    ". Available valid stock: " + totalValidStock + ", Requested: " + requestedQuantity + 
+                    ". Expired batches cannot be dispensed.");
+        }
 
+        // 3. Deduct from earliest expiring valid batches (FEFO)
         int remainingToDeduct = requestedQuantity;
         StringBuilder batchesDeducted = new StringBuilder();
 
-        for (MedicineBatch b : batches) {
+        for (MedicineBatch b : validBatches) {
             if (remainingToDeduct <= 0) break;
 
             int deduct = Math.min(b.getQuantity(), remainingToDeduct);
-            b.setQuantity(b.getQuantity() - deduct);
+            int newQty = b.getQuantity() - deduct;
+            if (newQty < 0) {
+                throw new IllegalStateException("Batch quantity cannot be negative (" + newQty + ") for batch: " + b.getBatchNumber());
+            }
+            b.setQuantity(newQty);
             remainingToDeduct -= deduct;
             medicineBatchRepository.save(b);
 
@@ -125,19 +145,19 @@ public class MedicineService {
             batchesDeducted.append(b.getBatchNumber()).append(" (-").append(deduct).append(")");
         }
 
-        // Recalculate total stock on medicine
+        if (remainingToDeduct > 0) {
+            throw new IllegalStateException("Could not fulfill dispense request from valid batches.");
+        }
+
+        // 4. Recalculate medicine stock and update
         medicine.recalculateStock();
         medicineRepository.save(medicine);
 
         Double totalPrice = medicine.getPrice() * requestedQuantity;
 
-        // Auto-billing to patient's active invoice
+        // 5. Auto-billing to patient's active invoice atomically within the same transaction
         if (patient != null && patient.getId() != null) {
-            try {
-                invoiceService.addPharmacyFee(patient, medicine.getName(), requestedQuantity, totalPrice);
-            } catch (Exception e) {
-                System.err.println("⚠️ Warning: Could not auto-bill pharmacy medication: " + e.getMessage());
-            }
+            invoiceService.addPharmacyFee(patient, medicine.getName(), requestedQuantity, totalPrice);
         }
 
         Map<String, Object> result = new HashMap<>();

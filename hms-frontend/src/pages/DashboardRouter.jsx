@@ -17,6 +17,7 @@ function DashboardRouter() {
     if (role === 'RECEPTIONIST') return <ReceptionistDashboard />;
     if (role === 'PATIENT') return <PatientDashboard />;
     if (role === 'NURSE') return <NurseDashboard />;
+    if (role === 'ACCOUNTANT') return <AdminDashboard />;
 
     
     return <h1 className="text-2xl font-bold p-10">Welcome to HMS</h1>;

@@ -25,6 +25,7 @@ function Pharmacy() {
     }, []);
 
     const isLowStock = (quantity) => quantity < 50;
+    const isExpired = (dateString) => dateString && new Date(dateString) <= new Date();
     const formatDate = (dateString) => {
         const options = { year: 'numeric', month: 'short', day: 'numeric' };
         return new Date(dateString).toLocaleDateString(undefined, options);
@@ -82,7 +83,16 @@ function Pharmacy() {
                                             )}
                                         </div>
                                     </td>
-                                    <td className="p-4 text-gray-600">{formatDate(med.expiryDate)}</td>
+                                    <td className="p-4 text-gray-600">
+                                        <div className="flex items-center gap-1.5">
+                                            <span>{formatDate(med.expiryDate)}</span>
+                                            {isExpired(med.expiryDate) && (
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                                                    Expired
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
                                 </tr>
                             ))
                         ) : (

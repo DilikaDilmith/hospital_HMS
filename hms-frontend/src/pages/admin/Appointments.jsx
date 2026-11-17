@@ -13,14 +13,17 @@ import {
     FaSpinner 
 } from 'react-icons/fa';
 import AddAppointmentModal from '../../components/admin/AddAppointmentModal';
+import RescheduleAppointmentModal from '../../components/common/RescheduleAppointmentModal';
 
 function Appointments() {
     const [appointments, setAppointments] = useState([]);
     const [showModal, setShowModal] = useState(false);
+    const [reschedulingAppt, setReschedulingAppt] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [dateFilter, setDateFilter] = useState('');
 
     const fetchAppointments = async () => {
         setLoading(true);
@@ -69,6 +72,12 @@ function Appointments() {
         if (statusFilter !== 'ALL') {
             const apptStatus = (appt.status || '').toUpperCase();
             if (apptStatus !== statusFilter) return false;
+        }
+
+        // Calendar Date filter check (YYYY-MM-DD)
+        if (dateFilter) {
+            const apptDate = appt.appointmentDateTime ? appt.appointmentDateTime.substring(0, 10) : '';
+            if (apptDate !== dateFilter) return false;
         }
 
         if (!query) return true;
@@ -175,7 +184,8 @@ function Appointments() {
             fetchAppointments();
         } catch (err) {
             console.error('Error checking in appointment:', err);
-            alert('Failed to check in appointment.');
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Failed to check in appointment.';
+            alert(msg);
         }
     };
 
@@ -189,6 +199,23 @@ function Appointments() {
         } catch (err) {
             console.error('Error completing appointment:', err);
             alert('Failed to complete appointment.');
+        }
+    };
+
+    const handleCancel = async (id) => {
+        if (!window.confirm(`Are you sure you want to cancel appointment #${id}? The slot will be released for other bookings.`)) {
+            return;
+        }
+        const token = localStorage.getItem('token');
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        try {
+            await axios.put(`http://localhost:8080/api/appointments/${id}/cancel`, {}, config);
+            alert(`Appointment #${id} cancelled successfully.`);
+            fetchAppointments();
+        } catch (err) {
+            console.error('Error cancelling appointment:', err);
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Failed to cancel appointment.';
+            alert(msg);
         }
     };
 
@@ -275,6 +302,25 @@ function Appointments() {
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full px-1.5 py-0.5"
                         >
                             ✕
+                        </button>
+                    )}
+                </div>
+
+                {/* Calendar / Date Filter (SRS Section 7) */}
+                <div className="flex items-center gap-2">
+                    <input 
+                        type="date"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        className="py-2.5 px-3 text-xs bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-xs text-gray-700"
+                        title="Filter by appointment date (Calendar View)"
+                    />
+                    {dateFilter && (
+                        <button
+                            onClick={() => setDateFilter('')}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                        >
+                            Clear Date
                         </button>
                     )}
                 </div>
@@ -411,13 +457,29 @@ function Appointments() {
                                         <td className="p-4 text-center">
                                             <div className="flex items-center justify-center gap-1.5">
                                                 {((appt.status || '').toUpperCase() === 'SCHEDULED' || (appt.status || '').toUpperCase() === 'BOOKED' || (appt.status || '').toUpperCase() === 'CONFIRMED') && (
-                                                    <button
-                                                        onClick={() => handleCheckIn(appt.id)}
-                                                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
-                                                        title="Check In Patient"
-                                                    >
-                                                        Check In
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleCheckIn(appt.id)}
+                                                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                                                            title="Check In Patient"
+                                                        >
+                                                            Check In
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setReschedulingAppt(appt)}
+                                                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                                                            title="Reschedule Appointment"
+                                                        >
+                                                            Reschedule
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleCancel(appt.id)}
+                                                            className="px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                                                            title="Cancel Appointment"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </>
                                                 )}
                                                 {(appt.status || '').toUpperCase() === 'CHECKED_IN' && (
                                                     <button
@@ -443,12 +505,12 @@ function Appointments() {
                                         <div className="flex flex-col items-center justify-center text-gray-400">
                                             <FaCalendarCheck size={44} className="mb-3 text-gray-300" />
                                             <p className="text-base font-semibold text-gray-700">
-                                                {searchQuery || statusFilter !== 'ALL' 
+                                                {searchQuery || statusFilter !== 'ALL' || dateFilter
                                                     ? 'No matching appointments found' 
                                                     : 'No appointments scheduled in the database yet'}
                                             </p>
                                             <p className="text-xs text-gray-400 mt-1 max-w-sm">
-                                                {searchQuery || statusFilter !== 'ALL'
+                                                {searchQuery || statusFilter !== 'ALL' || dateFilter
                                                     ? 'Try adjusting your search terms or filter selection to find what you are looking for.'
                                                     : 'Click the "Book Appointment" button above to schedule your first patient visit.'}
                                             </p>
@@ -461,11 +523,22 @@ function Appointments() {
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Modals */}
             {showModal && (
                 <AddAppointmentModal 
                     onClose={() => setShowModal(false)} 
                     onAppointmentAdded={fetchAppointments} 
+                />
+            )}
+
+            {reschedulingAppt && (
+                <RescheduleAppointmentModal 
+                    appointment={reschedulingAppt}
+                    onClose={() => setReschedulingAppt(null)} 
+                    onRescheduled={(updated) => {
+                        alert(`Appointment #${updated.id} successfully rescheduled to ${new Date(updated.appointmentDateTime).toLocaleString()}!`);
+                        fetchAppointments();
+                    }} 
                 />
             )}
         </div>

@@ -1,6 +1,7 @@
 package com.hospital.hms.controller;
 
 import com.hospital.hms.entity.Patient;
+import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,21 +19,45 @@ public class PatientController {
     @Autowired
     private PatientService patientService;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
+    public void setPatientService(PatientService patientService) {
+        this.patientService = patientService;
+    }
+
     // Endpoint to register a new patient (POST request)
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR')")
-    public ResponseEntity<?> registerPatient(@RequestBody Patient patient) {
+    public ResponseEntity<?> registerPatient(@RequestBody Patient patient, Authentication authentication) {
+        String actor = (authentication != null) ? authentication.getName() : "STAFF";
         try {
             Patient savedPatient = patientService.registerPatient(patient);
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_REGISTER", "SUCCESS",
+                        "Registered patient ID: " + savedPatient.getId() + " (" + savedPatient.getFirstName() + " " + savedPatient.getLastName() + ")");
+            }
             return ResponseEntity.ok(savedPatient);
         } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_REGISTER", "FAILED",
+                        "Failed patient registration: " + e.getMessage());
+            }
             return ResponseEntity.badRequest().body("Failed to register patient: " + e.getMessage());
         }
     }
 
-    // Endpoint to get a list of all patients (GET request)
+    public ResponseEntity<?> registerPatient(Patient patient) {
+        return registerPatient(patient, null);
+    }
+
+    // Endpoint to get a list of all patients (Staff only - Patients are forbidden)
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_ACCOUNTANT', 'ROLE_PATIENT')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_ACCOUNTANT')")
     public ResponseEntity<List<Patient>> getAllPatients() {
         return ResponseEntity.ok(patientService.getAllPatients());
     }
@@ -60,30 +85,79 @@ public class PatientController {
         String username = authentication.getName();
         try {
             Patient updated = patientService.updatePatientByUsername(username, updatedDetails);
+            if (auditLogService != null) {
+                auditLogService.log(username, "PATIENT_PROFILE_UPDATE", "SUCCESS", "Patient updated personal profile");
+            }
             return ResponseEntity.ok(updated);
         } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(username, "PATIENT_PROFILE_UPDATE", "FAILED", "Failed profile update: " + e.getMessage());
+            }
             return ResponseEntity.badRequest().body("Failed to update profile: " + e.getMessage());
         }
     }
 
-    // Endpoint to get a specific patient by ID
+    // Endpoint to get a specific patient by ID (Staff can view any; Patients can only view their own)
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_ACCOUNTANT', 'ROLE_PATIENT')")
-    public ResponseEntity<?> getPatientById(@PathVariable Long id) {
-        return patientService.getPatientById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<?> getPatientById(@PathVariable Long id, Authentication authentication) {
+        Patient patient = patientService.getPatientById(id).orElse(null);
+        if (patient == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Ownership enforcement for patients
+        if (isCallerPatientOnly(authentication)) {
+            if (patient.getUser() == null || !patient.getUser().getUsername().equals(authentication.getName())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Access denied: You are not authorized to view other patients' confidential records.");
+            }
+        }
+
+        return ResponseEntity.ok(patient);
     }
 
-    // Endpoint to update a patient by ID (Admin / Receptionist)
+    // Endpoint to update a patient by ID (Staff can update any; Patients can only update their own)
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR')")
-    public ResponseEntity<?> updatePatient(@PathVariable Long id, @RequestBody Patient updatedPatient) {
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_PATIENT')")
+    public ResponseEntity<?> updatePatient(@PathVariable Long id, @RequestBody Patient updatedPatient, Authentication authentication) {
         try {
+            Patient existing = patientService.getPatientById(id).orElse(null);
+            if (existing == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            if (isCallerPatientOnly(authentication)) {
+                if (existing.getUser() == null || !existing.getUser().getUsername().equals(authentication.getName())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("Access denied: You are not authorized to modify other patients' profiles.");
+                }
+            }
+
             Patient patient = patientService.updatePatient(id, updatedPatient);
+            if (auditLogService != null) {
+                auditLogService.log(authentication != null ? authentication.getName() : "STAFF",
+                        "PATIENT_UPDATE", "SUCCESS", "Updated patient record ID: " + id);
+            }
             return ResponseEntity.ok(patient);
         } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(authentication != null ? authentication.getName() : "STAFF",
+                        "PATIENT_UPDATE", "FAILED", "Failed to update patient ID: " + id + " - " + e.getMessage());
+            }
             return ResponseEntity.badRequest().body("Failed to update patient: " + e.getMessage());
         }
+    }
+
+    // Helper: returns true if the authenticated user only has PATIENT role
+    private boolean isCallerPatientOnly(Authentication authentication) {
+        if (authentication == null) return false;
+        boolean hasPatient = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("PATIENT") || a.getAuthority().equals("ROLE_PATIENT"));
+        boolean hasStaff = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().contains("ADMIN") || a.getAuthority().contains("DOCTOR") 
+                            || a.getAuthority().contains("RECEPTIONIST") || a.getAuthority().contains("NURSE")
+                            || a.getAuthority().contains("ACCOUNTANT"));
+        return hasPatient && !hasStaff;
     }
 }

@@ -2,10 +2,12 @@ package com.hospital.hms.controller;
 
 import com.hospital.hms.dto.AuthResponse;
 import com.hospital.hms.dto.LoginRequest;
+import com.hospital.hms.dto.SignupRequest;
 import com.hospital.hms.entity.Role;
 import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.UserRepository;
 import com.hospital.hms.security.JwtService;
+import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -37,6 +39,13 @@ public class AuthController {
     @Autowired
     private PatientService patientService;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
     // Endpoint to handle user login requests
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest loginRequest) {
@@ -53,50 +62,87 @@ public class AuthController {
                 User user = userRepository.findByUsername(loginRequest.getUsername())
                         .orElseThrow(() -> new RuntimeException("User not found!"));
 
+                if (auditLogService != null) {
+                    auditLogService.log(loginRequest.getUsername(), "USER_LOGIN", "SUCCESS",
+                            "User logged in successfully with role: " + user.getRole().name());
+                }
+
                 return ResponseEntity.ok(new AuthResponse(token, user.getRole().name()));
             } else {
+                if (auditLogService != null) {
+                    auditLogService.log(loginRequest.getUsername(), "USER_LOGIN", "FAILED", "Invalid credentials");
+                }
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials!");
             }
         } catch (BadCredentialsException e) {
+            if (auditLogService != null) {
+                auditLogService.log(loginRequest != null ? loginRequest.getUsername() : "UNKNOWN",
+                        "USER_LOGIN", "FAILED", "Invalid username or password");
+            }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password!");
         } catch (DisabledException e) {
+            if (auditLogService != null) {
+                auditLogService.log(loginRequest != null ? loginRequest.getUsername() : "UNKNOWN",
+                        "USER_LOGIN", "FAILED", "Account pending administrator approval");
+            }
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Your account is pending administrator approval!");
         } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(loginRequest != null ? loginRequest.getUsername() : "UNKNOWN",
+                        "USER_LOGIN", "FAILED", "Authentication failed");
+            }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Login failed: " + e.getMessage());
         }
     }
 
-    // Endpoint to handle new user registration (Signup)
+    // Endpoint to handle new user registration (Signup) with strict role allowlist & admin protection
     @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@RequestBody User user) {
+    public ResponseEntity<?> registerUser(@RequestBody SignupRequest request) {
         try {
-            if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+            if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
                 return ResponseEntity.badRequest().body("Username is required!");
             }
-            if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+            if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
                 return ResponseEntity.badRequest().body("Password is required!");
             }
 
-            String username = user.getUsername().trim();
+            String username = request.getUsername().trim();
             if (userRepository.findByUsername(username).isPresent()) {
-                return ResponseEntity.ok("Username already exists!");
+                return ResponseEntity.badRequest().body("Username already exists!");
             }
 
+            // Role assignment & allowlist validation
+            Role assignedRole = Role.PATIENT;
+            if (request.getRole() != null && !request.getRole().trim().isEmpty()) {
+                String roleStr = request.getRole().trim().toUpperCase();
+
+                // Security check: NEVER allow public self-registration as ADMIN
+                if ("ADMIN".equals(roleStr) || "ROLE_ADMIN".equals(roleStr)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("Registration for ADMIN role is not permitted via public registration.");
+                }
+
+                try {
+                    assignedRole = Role.valueOf(roleStr.replace("ROLE_", ""));
+                    if (assignedRole == Role.ADMIN) {
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body("Registration for ADMIN role is not permitted via public registration.");
+                    }
+                } catch (IllegalArgumentException ex) {
+                    return ResponseEntity.badRequest().body("Invalid role specified. Permitted roles: PATIENT, DOCTOR, NURSE, RECEPTIONIST, LAB_STAFF, PHARMACIST, ACCOUNTANT.");
+                }
+            }
+
+            User user = new User();
             user.setUsername(username);
-            if (user.getFullName() != null) {
-                user.setFullName(user.getFullName().trim());
-            } else {
-                user.setFullName(username);
-            }
+            user.setPassword(passwordEncoder.encode(request.getPassword().trim()));
+            user.setFullName((request.getFullName() != null && !request.getFullName().trim().isEmpty())
+                    ? request.getFullName().trim()
+                    : username);
+            user.setRole(assignedRole);
 
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
-
-            if (user.getRole() == null) {
-                user.setRole(Role.PATIENT);
-            }
-
-            // PATIENT users are auto-approved; staff require admin approval
-            if (user.getRole() == Role.PATIENT) {
+            // PATIENT users are auto-approved; all applicant staff roles require admin approval
+            if (assignedRole == Role.PATIENT) {
                 user.setStatus("APPROVED");
             } else {
                 user.setStatus("PENDING");
@@ -114,8 +160,12 @@ public class AuthController {
                 }
             }
 
-            System.out.println("✅ User registered successfully: " + savedUser.getUsername() + " with role: " + savedUser.getRole() + " and status: " + savedUser.getStatus());
-            return ResponseEntity.ok("User registered successfully! Awaiting Admin Approval (if staff).");
+            System.out.println("✅ User registered: " + savedUser.getUsername() + " [Role: " + savedUser.getRole() + ", Status: " + savedUser.getStatus() + "]");
+            String msg = (savedUser.getRole() == Role.PATIENT)
+                    ? "Patient registered successfully! You may now log in."
+                    : "Staff registration submitted successfully! Your account is pending Administrator approval.";
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(msg);
         } catch (Exception e) {
             System.err.println("❌ Registration error: " + e.getMessage());
             e.printStackTrace();

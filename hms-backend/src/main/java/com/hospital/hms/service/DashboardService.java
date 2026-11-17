@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -53,6 +55,11 @@ public class DashboardService {
         // 1. Core Summary Metrics
         response.setTotalPatients(patientRepository.count());
         response.setTotalAppointments(appointmentRepository.count());
+        
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
+        response.setTodaysAppointments(appointmentRepository.countByAppointmentDateTimeBetween(startOfDay, endOfDay));
+
         response.setTotalLabRequests(labTestRepository.count());
         response.setPendingLabTests(labTestRepository.countByStatus(LabTestStatus.REQUESTED));
         response.setLowStockMedicines(medicineRepository.countByStockQuantityLessThan(50));

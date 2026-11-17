@@ -21,6 +21,8 @@ import Billing from './pages/admin/Billing';
 import UserApprovals from './pages/admin/UserApprovals';
 import InpatientManagement from './pages/admin/InpatientManagement';
 import StaffManagement from './pages/admin/StaffManagement';
+import AuditLogs from './pages/admin/AuditLogs';
+import InactivityTimer from './components/common/InactivityTimer';
 
 // Nurse Pages
 import NurseDashboard from './pages/nurse/NurseDashboard';
@@ -48,6 +50,8 @@ import LabResults from './pages/patient/LabResults';
 function App() {
   return (
     <BrowserRouter>
+      {/* Automatic session inactivity timeout watcher */}
+      <InactivityTimer />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Login />} />
@@ -61,6 +65,7 @@ function App() {
           
           {/* Admin Specific Routes */}
           <Route path="/admin/approvals" element={<UserApprovals />} />
+          <Route path="/admin/audit-logs" element={<AuditLogs />} />
           <Route path="/admin/staff" element={<StaffManagement />} />
           <Route path="/admin/patients" element={<Patients />} />
           <Route path="/admin/doctors" element={<Doctors />} />
@@ -92,6 +97,9 @@ function App() {
           <Route path="/receptionist/appointments" element={<Appointments />} />
           <Route path="/receptionist/billing" element={<Billing />} />
           <Route path="/receptionist/inpatient" element={<InpatientManagement />} />
+
+          {/* Accountant Specific Routes */}
+          <Route path="/accountant/billing" element={<Billing />} />
  
           {/* Patient Specific Routes */}
           <Route path="/patient/dashboard" element={<PatientDashboard />} />

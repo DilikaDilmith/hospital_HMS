@@ -13,23 +13,34 @@ import {
     FaEdit,
     FaTrash,
     FaMoneyBillWave,
-    FaBuilding
+    FaBuilding,
+    FaCalendarTimes
 } from 'react-icons/fa';
 
 function StaffManagement() {
-    const [activeTab, setActiveTab] = useState('roster'); // 'roster' | 'attendance'
+    const [activeTab, setActiveTab] = useState('roster'); // 'roster' | 'attendance' | 'leaves'
     const [employees, setEmployees] = useState([]);
     const [attendanceList, setAttendanceList] = useState([]);
     const [unassignedUsers, setUnassignedUsers] = useState([]);
+    const [leaveList, setLeaveList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+    // Leave Filter States
+    const [leaveFilterStatus, setLeaveFilterStatus] = useState('ALL');
+    const [leaveFilterType, setLeaveFilterType] = useState('ALL');
+    const [leaveSearchTerm, setLeaveSearchTerm] = useState('');
 
     // Modal States
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+    const [showAddLeaveModal, setShowAddLeaveModal] = useState(false);
+    const [showEditLeaveModal, setShowEditLeaveModal] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
+    const [selectedLeave, setSelectedLeave] = useState(null);
+    const [leaveError, setLeaveError] = useState('');
 
     // Form States
     const [employeeForm, setEmployeeForm] = useState({
@@ -48,6 +59,15 @@ function StaffManagement() {
         checkOutTime: '17:00',
         status: 'PRESENT',
         notes: ''
+    });
+
+    const [leaveForm, setLeaveForm] = useState({
+        employeeId: '',
+        leaveType: 'SICK',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+        reason: '',
+        status: 'APPROVED'
     });
 
     const token = localStorage.getItem('token');
@@ -77,6 +97,16 @@ function StaffManagement() {
         }
     };
 
+    // Fetch Leave Records
+    const fetchLeaves = async () => {
+        try {
+            const res = await axios.get('http://localhost:8080/api/staff/leaves', authHeader);
+            setLeaveList(res.data);
+        } catch (err) {
+            console.error("Error fetching leaves", err);
+        }
+    };
+
     // Fetch Unassigned Users for "Add Staff"
     const fetchUnassignedUsers = async () => {
         try {
@@ -90,6 +120,7 @@ function StaffManagement() {
     useEffect(() => {
         fetchEmployees();
         fetchAttendance(selectedDate);
+        fetchLeaves();
     }, []);
 
     const handleOpenAddModal = () => {
@@ -195,6 +226,131 @@ function StaffManagement() {
         }
     };
 
+    // Leave Modal Handlers
+    const handleOpenAddLeaveModal = (empId = null) => {
+        setLeaveError('');
+        const defaultEmpId = empId || (employees.length > 0 ? employees[0].id : '');
+        setLeaveForm({
+            employeeId: defaultEmpId,
+            leaveType: 'SICK',
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: new Date().toISOString().split('T')[0],
+            reason: '',
+            status: 'APPROVED'
+        });
+        setShowAddLeaveModal(true);
+    };
+
+    const handleCreateLeave = async (e) => {
+        e.preventDefault();
+        setLeaveError('');
+
+        if (!leaveForm.employeeId) {
+            setLeaveError("Please select a staff member.");
+            return;
+        }
+        if (!leaveForm.leaveType || !leaveForm.leaveType.trim()) {
+            setLeaveError("Please select a leave type.");
+            return;
+        }
+        if (!leaveForm.startDate || !leaveForm.endDate) {
+            setLeaveError("Please provide both start date and end date.");
+            return;
+        }
+        if (new Date(leaveForm.endDate) < new Date(leaveForm.startDate)) {
+            setLeaveError("Leave end date cannot be earlier than start date.");
+            return;
+        }
+        if (!leaveForm.reason || !leaveForm.reason.trim()) {
+            setLeaveError("Please provide a reason for the leave.");
+            return;
+        }
+
+        try {
+            await axios.post('http://localhost:8080/api/staff/leaves', leaveForm, authHeader);
+            alert("✅ Staff leave record created successfully!");
+            setShowAddLeaveModal(false);
+            fetchLeaves();
+            fetchEmployees();
+        } catch (err) {
+            const msg = err.response?.data?.message || err.response?.data || err.message;
+            setLeaveError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        }
+    };
+
+    const handleOpenEditLeaveModal = (record) => {
+        setSelectedLeave(record);
+        setLeaveError('');
+        setLeaveForm({
+            employeeId: record.employee?.id || '',
+            leaveType: record.leaveType || 'SICK',
+            startDate: record.startDate || '',
+            endDate: record.endDate || '',
+            reason: record.reason || '',
+            status: record.status || 'APPROVED'
+        });
+        setShowEditLeaveModal(true);
+    };
+
+    const handleUpdateLeave = async (e) => {
+        e.preventDefault();
+        setLeaveError('');
+
+        if (!leaveForm.employeeId) {
+            setLeaveError("Please select a staff member.");
+            return;
+        }
+        if (!leaveForm.leaveType || !leaveForm.leaveType.trim()) {
+            setLeaveError("Please select a leave type.");
+            return;
+        }
+        if (!leaveForm.startDate || !leaveForm.endDate) {
+            setLeaveError("Please provide both start date and end date.");
+            return;
+        }
+        if (new Date(leaveForm.endDate) < new Date(leaveForm.startDate)) {
+            setLeaveError("Leave end date cannot be earlier than start date.");
+            return;
+        }
+        if (!leaveForm.reason || !leaveForm.reason.trim()) {
+            setLeaveError("Please provide a reason for the leave.");
+            return;
+        }
+
+        try {
+            await axios.put(`http://localhost:8080/api/staff/leaves/${selectedLeave.id}`, leaveForm, authHeader);
+            alert("✅ Leave record updated successfully!");
+            setShowEditLeaveModal(false);
+            fetchLeaves();
+            fetchEmployees();
+        } catch (err) {
+            const msg = err.response?.data?.message || err.response?.data || err.message;
+            setLeaveError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        }
+    };
+
+    const handleDeleteLeave = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this leave record?")) return;
+        try {
+            await axios.delete(`http://localhost:8080/api/staff/leaves/${id}`, authHeader);
+            alert("✅ Leave record deleted successfully.");
+            fetchLeaves();
+            fetchEmployees();
+        } catch (err) {
+            const msg = err.response?.data?.message || err.response?.data || err.message;
+            alert("Error deleting leave: " + (typeof msg === 'string' ? msg : JSON.stringify(msg)));
+        }
+    };
+
+    const calculateDays = (start, end) => {
+        if (!start || !end) return 1;
+        const s = new Date(start);
+        const e = new Date(end);
+        const diffTime = e.getTime() - s.getTime();
+        if (diffTime < 0) return 0;
+        return Math.round(diffTime / (1000 * 3600 * 24)) + 1;
+    };
+
     // Filter employees by search
     const filteredEmployees = employees.filter(e => {
         const query = searchTerm.toLowerCase();
@@ -207,8 +363,24 @@ function StaffManagement() {
         );
     });
 
+    // Filter leaves
+    const filteredLeaves = leaveList.filter(l => {
+        const query = leaveSearchTerm.toLowerCase();
+        const matchSearch = leaveSearchTerm === '' ||
+            (l.employee?.user?.fullName && l.employee.user.fullName.toLowerCase().includes(query)) ||
+            (l.employee?.user?.username && l.employee.user.username.toLowerCase().includes(query)) ||
+            (l.employee?.department && l.employee.department.toLowerCase().includes(query)) ||
+            (l.reason && l.reason.toLowerCase().includes(query));
+
+        const matchStatus = leaveFilterStatus === 'ALL' || l.status === leaveFilterStatus;
+        const matchType = leaveFilterType === 'ALL' || l.leaveType === leaveFilterType;
+
+        return matchSearch && matchStatus && matchType;
+    });
+
     const totalPayroll = employees.reduce((acc, curr) => acc + (curr.salary || 0), 0);
     const presentTodayCount = attendanceList.filter(a => a.status !== 'ABSENT').length;
+    const onLeaveCount = employees.filter(e => e.status === 'ON_LEAVE').length;
 
     return (
         <div className="pb-12 max-w-7xl mx-auto">
@@ -219,16 +391,16 @@ function StaffManagement() {
                         <FaUserTie className="text-indigo-400" /> Staff HR & Attendance Management
                     </h1>
                     <p className="text-indigo-200 text-sm mt-1">
-                        Manage hospital personnel roster, designations, monthly compensation, and daily attendance logs.
+                        Manage hospital personnel roster, designations, monthly compensation, attendance logs, and staff leave records.
                     </p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                     <button
                         onClick={handleOpenAddModal}
                         className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-semibold shadow-md flex items-center gap-2 text-sm transition"
                     >
-                        <FaPlus /> Add Staff Member
+                        <FaPlus /> Add Staff
                     </button>
                     <button
                         onClick={() => {
@@ -246,11 +418,17 @@ function StaffManagement() {
                     >
                         <FaCalendarCheck /> Log Attendance
                     </button>
+                    <button
+                        onClick={() => handleOpenAddLeaveModal()}
+                        className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-xl font-semibold shadow-md flex items-center gap-2 text-sm transition"
+                    >
+                        <FaCalendarTimes /> Record Leave
+                    </button>
                 </div>
             </div>
 
             {/* 2. Top KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
                     <div>
                         <p className="text-xs uppercase font-bold text-gray-500">Total Staff</p>
@@ -270,6 +448,17 @@ function StaffManagement() {
                     </div>
                     <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl">
                         <FaCheckCircle size={24} />
+                    </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <p className="text-xs uppercase font-bold text-gray-500">On Leave</p>
+                        <h3 className="text-2xl font-black text-amber-600 mt-1">{onLeaveCount}</h3>
+                        <p className="text-xs text-amber-700 mt-1 font-medium">{leaveList.length} total recorded</p>
+                    </div>
+                    <div className="bg-amber-50 text-amber-600 p-3 rounded-xl">
+                        <FaCalendarTimes size={24} />
                     </div>
                 </div>
 
@@ -322,6 +511,19 @@ function StaffManagement() {
                     }`}
                 >
                     <FaCalendarCheck /> Daily Attendance ({attendanceList.length})
+                </button>
+                <button
+                    onClick={() => {
+                        setActiveTab('leaves');
+                        fetchLeaves();
+                    }}
+                    className={`py-3 px-6 font-bold text-sm rounded-t-lg transition flex items-center gap-2 ${
+                        activeTab === 'leaves'
+                            ? 'bg-white border-t-2 border-amber-600 text-amber-700 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                >
+                    <FaCalendarTimes /> Leave Records ({leaveList.length})
                 </button>
             </div>
 
@@ -394,7 +596,9 @@ function StaffManagement() {
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                                                     emp.status === 'ACTIVE' 
                                                         ? 'bg-emerald-100 text-emerald-700' 
-                                                        : 'bg-amber-100 text-amber-700'
+                                                        : emp.status === 'ON_LEAVE'
+                                                        ? 'bg-amber-100 text-amber-700'
+                                                        : 'bg-rose-100 text-rose-700'
                                                 }`}>
                                                     {emp.status}
                                                 </span>
@@ -414,6 +618,13 @@ function StaffManagement() {
                                                         className="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white rounded-lg transition"
                                                     >
                                                         <FaSignOutAlt size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleOpenAddLeaveModal(emp.id)}
+                                                        title="Record Leave"
+                                                        className="p-1.5 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white rounded-lg transition"
+                                                    >
+                                                        <FaCalendarTimes size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleOpenEditModal(emp)}
@@ -540,6 +751,155 @@ function StaffManagement() {
                                             </td>
                                         </tr>
                                     ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* 5B. Tab 3: Staff Leave Records */}
+            {activeTab === 'leaves' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                            <div className="relative w-full sm:w-64">
+                                <FaSearch className="absolute left-3 top-3.5 text-gray-400 text-sm" />
+                                <input
+                                    type="text"
+                                    placeholder="Search staff, dept, reason..."
+                                    value={leaveSearchTerm}
+                                    onChange={(e) => setLeaveSearchTerm(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Type:</label>
+                                <select
+                                    value={leaveFilterType}
+                                    onChange={(e) => setLeaveFilterType(e.target.value)}
+                                    className="border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                                >
+                                    <option value="ALL">All Types</option>
+                                    <option value="SICK">SICK</option>
+                                    <option value="CASUAL">CASUAL</option>
+                                    <option value="ANNUAL">ANNUAL</option>
+                                    <option value="MATERNITY">MATERNITY</option>
+                                    <option value="UNPAID">UNPAID</option>
+                                    <option value="OTHER">OTHER</option>
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Status:</label>
+                                <select
+                                    value={leaveFilterStatus}
+                                    onChange={(e) => setLeaveFilterStatus(e.target.value)}
+                                    className="border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                                >
+                                    <option value="ALL">All Statuses</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => handleOpenAddLeaveModal()}
+                            className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl font-semibold shadow-md flex items-center gap-2 text-sm transition"
+                        >
+                            <FaPlus /> Record Staff Leave
+                        </button>
+                    </div>
+
+                    {filteredLeaves.length === 0 ? (
+                        <div className="text-center py-12 text-gray-400">
+                            <FaCalendarTimes className="mx-auto text-4xl mb-3 opacity-40 text-amber-500" />
+                            <p className="text-base font-semibold">No leave records found</p>
+                            <p className="text-sm mt-1">Use the "Record Staff Leave" button above to register an employee leave.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse text-sm">
+                                <thead>
+                                    <tr className="bg-gray-50 text-gray-600 font-semibold border-b">
+                                        <th className="py-3 px-4">Staff Member</th>
+                                        <th className="py-3 px-4">Department</th>
+                                        <th className="py-3 px-4">Leave Type</th>
+                                        <th className="py-3 px-4">Duration</th>
+                                        <th className="py-3 px-4">Reason</th>
+                                        <th className="py-3 px-4">Status</th>
+                                        <th className="py-3 px-4 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {filteredLeaves.map((record) => {
+                                        const days = calculateDays(record.startDate, record.endDate);
+                                        return (
+                                            <tr key={record.id} className="hover:bg-amber-50/40 transition">
+                                                <td className="py-3.5 px-4 font-bold text-gray-900">
+                                                    <div>{record.employee?.user?.fullName || record.employee?.user?.username || '—'}</div>
+                                                    <div className="text-xs font-normal text-gray-400">
+                                                        {record.employee?.designation} (@{record.employee?.user?.username})
+                                                    </div>
+                                                </td>
+                                                <td className="py-3.5 px-4">
+                                                    <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-xs font-semibold">
+                                                        {record.employee?.department || '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3.5 px-4">
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                        record.leaveType === 'SICK' ? 'bg-amber-100 text-amber-800' :
+                                                        record.leaveType === 'CASUAL' ? 'bg-indigo-100 text-indigo-800' :
+                                                        record.leaveType === 'ANNUAL' ? 'bg-blue-100 text-blue-800' :
+                                                        record.leaveType === 'MATERNITY' ? 'bg-pink-100 text-pink-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                        {record.leaveType}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3.5 px-4 text-gray-700">
+                                                    <div className="font-semibold">{record.startDate} <span className="text-gray-400 font-normal">to</span> {record.endDate}</div>
+                                                    <div className="text-xs text-indigo-600 font-bold">{days} {days === 1 ? 'day' : 'days'}</div>
+                                                </td>
+                                                <td className="py-3.5 px-4 text-gray-600 max-w-xs truncate" title={record.reason}>
+                                                    {record.reason || '—'}
+                                                </td>
+                                                <td className="py-3.5 px-4">
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                        record.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
+                                                        record.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                                        record.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' :
+                                                        'bg-gray-200 text-gray-700'
+                                                    }`}>
+                                                        {record.status}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3.5 px-4 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => handleOpenEditLeaveModal(record)}
+                                                            title="Edit Leave Record"
+                                                            className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition"
+                                                        >
+                                                            <FaEdit size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteLeave(record.id)}
+                                                            title="Delete Leave Record"
+                                                            className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg transition"
+                                                        >
+                                                            <FaTrash size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -877,6 +1237,256 @@ function StaffManagement() {
                                     className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition"
                                 >
                                     Save Attendance Log
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 9. Modal: Record Leave */}
+            {showAddLeaveModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-fade-in">
+                        <div className="flex justify-between items-center border-b pb-3 mb-4">
+                            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <FaCalendarTimes className="text-amber-600" /> Record Staff Leave
+                            </h3>
+                            <button 
+                                onClick={() => setShowAddLeaveModal(false)} 
+                                className="text-gray-400 hover:text-gray-600 font-bold text-xl"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        {leaveError && (
+                            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+                                ⚠️ {leaveError}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleCreateLeave} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 mb-1">Select Staff Member *</label>
+                                <select
+                                    required
+                                    value={leaveForm.employeeId}
+                                    onChange={(e) => setLeaveForm({ ...leaveForm, employeeId: e.target.value })}
+                                    className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                >
+                                    <option value="">-- Choose Staff Member --</option>
+                                    {employees.map(emp => (
+                                        <option key={emp.id} value={emp.id}>
+                                            {emp.user?.fullName || emp.user?.username} ({emp.designation} - {emp.department})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Leave Type *</label>
+                                    <select
+                                        value={leaveForm.leaveType}
+                                        onChange={(e) => setLeaveForm({ ...leaveForm, leaveType: e.target.value })}
+                                        className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                    >
+                                        <option value="SICK">SICK</option>
+                                        <option value="CASUAL">CASUAL</option>
+                                        <option value="ANNUAL">ANNUAL</option>
+                                        <option value="MATERNITY">MATERNITY</option>
+                                        <option value="UNPAID">UNPAID</option>
+                                        <option value="OTHER">OTHER</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Status *</label>
+                                    <select
+                                        value={leaveForm.status}
+                                        onChange={(e) => setLeaveForm({ ...leaveForm, status: e.target.value })}
+                                        className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                    >
+                                        <option value="APPROVED">APPROVED</option>
+                                        <option value="PENDING">PENDING</option>
+                                        <option value="REJECTED">REJECTED</option>
+                                        <option value="CANCELLED">CANCELLED</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Start Date *</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={leaveForm.startDate}
+                                        onChange={(e) => setLeaveForm({ ...leaveForm, startDate: e.target.value })}
+                                        className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">End Date *</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={leaveForm.endDate}
+                                        onChange={(e) => setLeaveForm({ ...leaveForm, endDate: e.target.value })}
+                                        className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 mb-1">Reason for Leave *</label>
+                                <textarea
+                                    required
+                                    rows="3"
+                                    placeholder="State the reason or medical diagnosis for this leave request..."
+                                    value={leaveForm.reason}
+                                    onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
+                                    className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-3 border-t">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddLeaveModal(false)}
+                                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl font-semibold"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-5 py-2 text-sm bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-md transition"
+                                >
+                                    Save Leave Record
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 10. Modal: Edit Leave */}
+            {showEditLeaveModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-fade-in">
+                        <div className="flex justify-between items-center border-b pb-3 mb-4">
+                            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <FaCalendarTimes className="text-amber-600" /> Edit Leave: {selectedLeave?.employee?.user?.fullName || selectedLeave?.employee?.user?.username}
+                            </h3>
+                            <button 
+                                onClick={() => setShowEditLeaveModal(false)} 
+                                className="text-gray-400 hover:text-gray-600 font-bold text-xl"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        {leaveError && (
+                            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+                                ⚠️ {leaveError}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleUpdateLeave} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 mb-1">Staff Member *</label>
+                                <select
+                                    required
+                                    value={leaveForm.employeeId}
+                                    onChange={(e) => setLeaveForm({ ...leaveForm, employeeId: e.target.value })}
+                                    className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                >
+                                    {employees.map(emp => (
+                                        <option key={emp.id} value={emp.id}>
+                                            {emp.user?.fullName || emp.user?.username} ({emp.designation} - {emp.department})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Leave Type *</label>
+                                    <select
+                                        value={leaveForm.leaveType}
+                                        onChange={(e) => setLeaveForm({ ...leaveForm, leaveType: e.target.value })}
+                                        className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                    >
+                                        <option value="SICK">SICK</option>
+                                        <option value="CASUAL">CASUAL</option>
+                                        <option value="ANNUAL">ANNUAL</option>
+                                        <option value="MATERNITY">MATERNITY</option>
+                                        <option value="UNPAID">UNPAID</option>
+                                        <option value="OTHER">OTHER</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Status *</label>
+                                    <select
+                                        value={leaveForm.status}
+                                        onChange={(e) => setLeaveForm({ ...leaveForm, status: e.target.value })}
+                                        className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                    >
+                                        <option value="APPROVED">APPROVED</option>
+                                        <option value="PENDING">PENDING</option>
+                                        <option value="REJECTED">REJECTED</option>
+                                        <option value="CANCELLED">CANCELLED</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Start Date *</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={leaveForm.startDate}
+                                        onChange={(e) => setLeaveForm({ ...leaveForm, startDate: e.target.value })}
+                                        className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">End Date *</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={leaveForm.endDate}
+                                        onChange={(e) => setLeaveForm({ ...leaveForm, endDate: e.target.value })}
+                                        className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 mb-1">Reason for Leave *</label>
+                                <textarea
+                                    required
+                                    rows="3"
+                                    value={leaveForm.reason}
+                                    onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
+                                    className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-amber-500"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-3 border-t">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditLeaveModal(false)}
+                                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl font-semibold"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-5 py-2 text-sm bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-md transition"
+                                >
+                                    Save Changes
                                 </button>
                             </div>
                         </form>

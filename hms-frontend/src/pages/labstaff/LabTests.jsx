@@ -11,8 +11,10 @@ import {
     FaFileInvoiceDollar, 
     FaHourglassHalf, 
     FaEdit,
-    FaTimes
+    FaTimes,
+    FaPrint
 } from 'react-icons/fa';
+import PrintableLabReportModal from '../../components/common/PrintableLabReportModal';
 
 function LabTests() {
     const [labTests, setLabTests] = useState([]);
@@ -21,6 +23,7 @@ function LabTests() {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [activeModalTest, setActiveModalTest] = useState(null);
+    const [printTestModal, setPrintTestModal] = useState(null);
     const [resultInput, setResultInput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,7 +70,8 @@ function LabTests() {
             fetchLabTests();
         } catch (err) {
             console.error("Error collecting sample:", err);
-            alert("Failed to update sample collection status.");
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Failed to update sample collection status.";
+            alert(msg);
         }
     };
 
@@ -92,7 +96,8 @@ function LabTests() {
             fetchLabTests();
         } catch (err) {
             console.error("Error finalizing test:", err);
-            alert("Failed to submit results. Please verify connection.");
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Failed to submit results. Please verify connection.";
+            alert(msg);
             setIsSubmitting(false);
         }
     };
@@ -270,9 +275,18 @@ function LabTests() {
                                                 )}
 
                                                 {test.status === 'COMPLETED' && (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                                                        <FaFileInvoiceDollar size={11} /> Billed to Invoice
-                                                    </span>
+                                                    <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                                                            <FaFileInvoiceDollar size={11} /> Billed
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setPrintTestModal(test)}
+                                                            className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition shadow-2xs"
+                                                            title="Print Laboratory Diagnostic Report"
+                                                        >
+                                                            <FaPrint size={10} /> Print Report
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         </td>
@@ -363,6 +377,13 @@ function LabTests() {
                         </form>
                     </div>
                 </div>
+            )}
+            {/* Printable Diagnostic Lab Report Modal */}
+            {printTestModal && (
+                <PrintableLabReportModal
+                    test={printTestModal}
+                    onClose={() => setPrintTestModal(null)}
+                />
             )}
         </div>
     );

@@ -38,19 +38,36 @@ public class AdmissionService {
         if (admission.getBed() == null || admission.getBed().getId() == null) {
             throw new IllegalArgumentException("A valid bed must be assigned for inpatient admission.");
         }
+        if (admission.getPatient() == null || admission.getPatient().getId() == null) {
+            throw new IllegalArgumentException("A valid patient must be specified for inpatient admission.");
+        }
+        if (admission.getDoctor() == null || admission.getDoctor().getId() == null) {
+            throw new IllegalArgumentException("An attending doctor must be assigned for inpatient admission.");
+        }
 
-        Bed bed = bedRepository.findById(admission.getBed().getId())
-                .orElseThrow(() -> new RuntimeException("Bed not found with ID: " + admission.getBed().getId()));
+        // Acquire pessimistic write lock on the bed to prevent concurrent assignments
+        Bed bed = bedRepository.findByIdForUpdate(admission.getBed().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Bed not found with ID: " + admission.getBed().getId()));
 
         if (bed.getStatus() != BedStatus.AVAILABLE) {
             throw new IllegalStateException("Bed " + bed.getBedNumber() + " is currently " + bed.getStatus() + " and cannot be assigned.");
         }
 
+        // Verify bed does not already have an active admission
+        if (admissionRepository.existsByBedIdAndStatus(bed.getId(), AdmissionStatus.ADMITTED)) {
+            throw new IllegalStateException("Bed " + bed.getBedNumber() + " already has an active inpatient admission.");
+        }
+
+        // Prevent admitting a patient who is already currently admitted
+        if (admissionRepository.existsByPatientIdAndStatus(admission.getPatient().getId(), AdmissionStatus.ADMITTED)) {
+            throw new IllegalStateException("Patient #" + admission.getPatient().getId() + " is already admitted to another bed.");
+        }
+
         Patient patient = patientRepository.findById(admission.getPatient().getId())
-                .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + admission.getPatient().getId()));
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found with ID: " + admission.getPatient().getId()));
 
         Doctor doctor = doctorRepository.findById(admission.getDoctor().getId())
-                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + admission.getDoctor().getId()));
+                .orElseThrow(() -> new IllegalArgumentException("Doctor not found with ID: " + admission.getDoctor().getId()));
 
         admission.setPatient(patient);
         admission.setDoctor(doctor);
@@ -60,8 +77,9 @@ public class AdmissionService {
             admission.setAdmissionDate(LocalDateTime.now());
         }
         admission.setStatus(AdmissionStatus.ADMITTED);
+        admission.setIsBilled(false);
 
-        // Update Bed status to OCCUPIED
+        // Update Bed status to OCCUPIED atomically within the transaction
         bed.setStatus(BedStatus.OCCUPIED);
         bedRepository.save(bed);
 
@@ -72,10 +90,13 @@ public class AdmissionService {
     @Transactional
     public Admission dischargePatient(Long admissionId, String dischargeNotes) {
         Admission admission = admissionRepository.findById(admissionId)
-                .orElseThrow(() -> new RuntimeException("Admission record not found with ID: " + admissionId));
+                .orElseThrow(() -> new IllegalArgumentException("Admission record not found with ID: " + admissionId));
 
         if (admission.getStatus() == AdmissionStatus.DISCHARGED) {
             throw new IllegalStateException("Patient has already been discharged on " + admission.getDischargeDate());
+        }
+        if (admission.getStatus() != AdmissionStatus.ADMITTED) {
+            throw new IllegalStateException("Admission #" + admissionId + " cannot be discharged because status is " + admission.getStatus());
         }
 
         LocalDateTime dischargeTime = LocalDateTime.now();
@@ -84,44 +105,45 @@ public class AdmissionService {
         admission.setStatus(AdmissionStatus.DISCHARGED);
 
         // Calculate days of stay (Minimum 1 day charged for same-day observation)
-        long days = ChronoUnit.DAYS.between(admission.getAdmissionDate().toLocalDate(), dischargeTime.toLocalDate());
+        LocalDateTime admissionTime = admission.getAdmissionDate() != null ? admission.getAdmissionDate() : dischargeTime.minusDays(1);
+        long days = ChronoUnit.DAYS.between(admissionTime.toLocalDate(), dischargeTime.toLocalDate());
         if (days < 1) {
             days = 1;
         }
 
         Bed bed = admission.getBed();
+        if (bed != null && bed.getId() != null) {
+            bed = bedRepository.findByIdForUpdate(bed.getId()).orElse(bed);
+            bed.setStatus(BedStatus.AVAILABLE);
+            bedRepository.save(bed);
+            admission.setBed(bed);
+        }
+
         Double dailyRate = bed != null ? bed.getEffectiveDailyRate() : 2500.0;
-        Double totalBedCharge = days * dailyRate;
+        if (dailyRate == null || dailyRate <= 0) {
+            dailyRate = 2500.0;
+        }
+        Double totalBedCharge = Math.round(days * dailyRate * 100.0) / 100.0;
 
         admission.setTotalDays(days);
         admission.setTotalBedCharge(totalBedCharge);
 
-        // Set Bed status back to AVAILABLE
-        if (bed != null) {
-            bed.setStatus(BedStatus.AVAILABLE);
-            bedRepository.save(bed);
+        // Auto-bill total bed accommodation charges to patient's active invoice idempotently
+        if (admission.getPatient() != null && bed != null && !Boolean.TRUE.equals(admission.getIsBilled())) {
+            String wardName = bed.getWard() != null ? bed.getWard().getName() : "General Ward";
+            invoiceService.addWardFee(
+                    admission.getPatient(),
+                    admission.getId(),
+                    wardName,
+                    bed.getBedNumber(),
+                    days,
+                    dailyRate,
+                    totalBedCharge
+            );
+            admission.setIsBilled(true);
         }
 
-        Admission savedAdmission = admissionRepository.save(admission);
-
-        // Auto-bill total bed accommodation charges to patient's active invoice
-        if (admission.getPatient() != null && bed != null) {
-            try {
-                String wardName = bed.getWard() != null ? bed.getWard().getName() : "General Ward";
-                invoiceService.addWardFee(
-                        admission.getPatient(),
-                        wardName,
-                        bed.getBedNumber(),
-                        days,
-                        dailyRate,
-                        totalBedCharge
-                );
-            } catch (Exception e) {
-                System.err.println("⚠️ Warning during ward auto-billing: " + e.getMessage());
-            }
-        }
-
-        return savedAdmission;
+        return admissionRepository.save(admission);
     }
 
     // Retrieve all admissions
@@ -142,5 +164,10 @@ public class AdmissionService {
     // Retrieve admissions for a patient
     public List<Admission> getAdmissionsByPatientId(Long patientId) {
         return admissionRepository.findByPatientIdOrderByAdmissionDateDesc(patientId);
+    }
+
+    // Retrieve admissions for a patient by user username
+    public List<Admission> getAdmissionsByPatientUsername(String username) {
+        return admissionRepository.findByPatientUserUsernameOrderByAdmissionDateDesc(username);
     }
 }

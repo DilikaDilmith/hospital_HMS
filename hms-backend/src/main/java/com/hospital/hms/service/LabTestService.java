@@ -50,6 +50,11 @@ public class LabTestService {
         return labTestRepository.findByPatientIdOrderByRequestedAtDesc(patientId);
     }
 
+    // Retrieve lab tests for an authenticated patient by username
+    public List<LabTest> getTestsByPatientUsername(String username) {
+        return labTestRepository.findByPatientUserUsernameOrderByRequestedAtDesc(username);
+    }
+
     // Retrieve lab tests requested by a specific doctor
     public List<LabTest> getTestsByDoctorId(Long doctorId) {
         return labTestRepository.findByDoctorIdOrderByRequestedAtDesc(doctorId);
@@ -60,32 +65,44 @@ public class LabTestService {
     public LabTest collectSample(Long id) {
         LabTest test = labTestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Lab test not found with id: " + id));
+
+        if (test.getStatus() == LabTestStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot collect sample for lab test #" + id + " because it is already completed.");
+        }
+
         test.setStatus(LabTestStatus.SAMPLE_COLLECTED);
         test.setSampleCollectedAt(LocalDateTime.now());
         return labTestRepository.save(test);
     }
 
     // Lab Staff enters test result and completes test: SAMPLE_COLLECTED -> COMPLETED
-    // Automatically creates an InvoiceItem under category 'LAB' on the patient's active Invoice
+    // Automatically creates an InvoiceItem under category 'LAB' on the patient's active Invoice in a single atomic transaction
     @Transactional
     public LabTest completeTest(Long id, String result) {
         LabTest test = labTestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Lab test not found with id: " + id));
 
+        // 1. Prevent duplicate completion requests
+        if (test.getStatus() == LabTestStatus.COMPLETED) {
+            throw new IllegalStateException("Lab test #" + id + " has already been completed.");
+        }
+
+        if (test.getPatient() == null) {
+            throw new IllegalStateException("Cannot complete lab test without a linked patient.");
+        }
+
+        // 2. Update test details
         test.setResult(result);
         test.setStatus(LabTestStatus.COMPLETED);
         test.setCompletedAt(LocalDateTime.now());
-        LabTest saved = labTestRepository.save(test);
 
-        // Billing Logic: Auto-bill the test to the patient's active invoice
-        if (saved.getPatient() != null) {
-            try {
-                invoiceService.addLabFee(saved.getPatient(), saved);
-            } catch (Exception e) {
-                System.err.println("⚠️ Warning: Could not auto-bill lab test: " + e.getMessage());
-            }
+        // 3. Billing Logic: Auto-bill the test atomically within the same transaction if not already billed
+        if (!Boolean.TRUE.equals(test.getIsBilled())) {
+            // Exceptions are intentionally allowed to propagate so Spring's @Transactional boundary rolls back all changes
+            invoiceService.addLabFee(test.getPatient(), test);
+            test.setIsBilled(true);
         }
 
-        return saved;
+        return labTestRepository.save(test);
     }
 }
