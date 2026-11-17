@@ -67,7 +67,8 @@ function LabTests() {
             fetchLabTests();
         } catch (err) {
             console.error("Error collecting sample:", err);
-            alert("Failed to update sample collection status.");
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Failed to update sample collection status.";
+            alert(msg);
         }
     };
 
@@ -92,7 +93,8 @@ function LabTests() {
             fetchLabTests();
         } catch (err) {
             console.error("Error finalizing test:", err);
-            alert("Failed to submit results. Please verify connection.");
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Failed to submit results. Please verify connection.";
+            alert(msg);
             setIsSubmitting(false);
         }
     };

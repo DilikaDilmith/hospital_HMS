@@ -175,11 +175,21 @@ public class InvoiceService {
         return addConsultationFee(patient, doctor, null);
     }
 
-    // Automatically add a Laboratory Test Fee to the patient's active (UNPAID) invoice
+    // Automatically add a Laboratory Test Fee to the patient's active (UNPAID) invoice with idempotency
     @Transactional
     public Invoice addLabFee(Patient patient, com.hospital.hms.entity.LabTest labTest) {
         if (patient == null || patient.getId() == null) {
             throw new IllegalArgumentException("Patient cannot be null for lab test fee.");
+        }
+        if (labTest == null) {
+            throw new IllegalArgumentException("Lab test cannot be null for lab test fee.");
+        }
+
+        // Idempotency check: verify this lab test hasn't already been billed
+        if (labTest.getId() != null && invoiceItemRepository.existsByReferenceTypeAndReferenceId("LAB_TEST", labTest.getId())) {
+            System.out.println("⚠️ Lab fee already billed for LabTest #" + labTest.getId() + ". Skipping duplicate charge.");
+            return invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
+                    .orElse(null);
         }
 
         Invoice invoice = invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
@@ -192,19 +202,25 @@ public class InvoiceService {
                     return invoiceRepository.save(newInv);
                 });
 
-        Double fee = (labTest != null && labTest.getTestFee() != null && labTest.getTestFee() > 0)
+        Double fee = (labTest.getTestFee() != null && labTest.getTestFee() > 0)
                 ? labTest.getTestFee()
                 : 2500.0;
 
-        String testName = (labTest != null && labTest.getTestName() != null)
+        String testName = (labTest.getTestName() != null)
                 ? labTest.getTestName()
                 : "Diagnostic Lab Test";
+
+        String desc = (labTest.getId() != null)
+                ? "Laboratory Test - " + testName + " (Test #" + labTest.getId() + ")"
+                : "Laboratory Test - " + testName;
 
         InvoiceItem labItem = new InvoiceItem();
         labItem.setInvoice(invoice);
         labItem.setCategory("LAB");
-        labItem.setDescription("Laboratory Test - " + testName);
+        labItem.setDescription(desc);
         labItem.setAmount(fee);
+        labItem.setReferenceType("LAB_TEST");
+        labItem.setReferenceId(labTest.getId());
         labItem.setCreatedAt(LocalDateTime.now());
 
         invoice.addItem(labItem);

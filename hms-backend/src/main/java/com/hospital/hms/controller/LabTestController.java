@@ -90,6 +90,8 @@ public class LabTestController {
         try {
             LabTest updated = labTestService.collectSample(id);
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to mark sample collected: " + e.getMessage());
         }
@@ -106,6 +108,8 @@ public class LabTestController {
             }
             LabTest updated = labTestService.completeTest(id, result.trim());
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to complete lab test: " + e.getMessage());
         }
