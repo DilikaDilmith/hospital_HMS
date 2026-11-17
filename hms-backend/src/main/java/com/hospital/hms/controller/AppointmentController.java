@@ -111,6 +111,8 @@ public class AppointmentController {
         try {
             Appointment updated = appointmentService.checkInAppointment(id);
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to check in appointment: " + e.getMessage());
         }
@@ -123,6 +125,8 @@ public class AppointmentController {
         try {
             Appointment updated = appointmentService.completeAppointment(id);
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to complete appointment: " + e.getMessage());
         }
@@ -142,6 +146,8 @@ public class AppointmentController {
             AppointmentStatus status = AppointmentStatus.valueOf(statusStr.trim().toUpperCase());
             Appointment updated = appointmentService.updateAppointmentStatus(id, status);
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Invalid appointment status. Allowed values: SCHEDULED, CONFIRMED, CHECKED_IN, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW");
         } catch (Exception e) {

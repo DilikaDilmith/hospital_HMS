@@ -139,30 +139,51 @@ public class AppointmentService {
     public Appointment checkInAppointment(Long appointmentId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Appointment not found with ID: " + appointmentId));
+
+        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot check in appointment #" + appointmentId + " because it is already completed.");
+        }
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot check in cancelled appointment #" + appointmentId + ".");
+        }
+
         appointment.setStatus(AppointmentStatus.CHECKED_IN);
         return appointmentRepository.save(appointment);
     }
 
-    // Complete appointment and automatically trigger Doctor's consultation fee billing
+    // Complete appointment and automatically trigger Doctor's consultation fee billing in one atomic transaction
     @Transactional
     public Appointment completeAppointment(Long appointmentId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Appointment not found with ID: " + appointmentId));
 
-        appointment.setStatus(AppointmentStatus.COMPLETED);
-        Appointment saved = appointmentRepository.save(appointment);
-
-        // Billing Logic: When an appointment is marked 'COMPLETED', automatically create an InvoiceItem
-        // for the Doctor's Consultation Fee and attach it to the patient's active Invoice.
-        if (saved.getPatient() != null && saved.getDoctor() != null) {
-            try {
-                invoiceService.addConsultationFee(saved.getPatient(), saved.getDoctor());
-            } catch (Exception e) {
-                System.err.println("⚠️ Warning: Could not auto-generate consultation fee: " + e.getMessage());
-            }
+        // 1. Prevent duplicate completion requests
+        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Appointment #" + appointmentId + " has already been completed.");
         }
 
-        return saved;
+        // 2. Prevent completing cancelled appointments
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot complete cancelled appointment #" + appointmentId + ".");
+        }
+
+        if (appointment.getPatient() == null) {
+            throw new IllegalStateException("Cannot complete appointment without a linked patient.");
+        }
+        if (appointment.getDoctor() == null) {
+            throw new IllegalStateException("Cannot complete appointment without a linked doctor.");
+        }
+
+        // 3. Update appointment status to COMPLETED
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+
+        // 4. Atomic billing: generate consultation fee within the same transaction if not already billed
+        if (!Boolean.TRUE.equals(appointment.getIsBilled())) {
+            invoiceService.addConsultationFee(appointment);
+            appointment.setIsBilled(true);
+        }
+
+        return appointmentRepository.save(appointment);
     }
 
     // Update appointment status to any of the 7 states

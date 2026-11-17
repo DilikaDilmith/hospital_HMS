@@ -175,7 +175,8 @@ function Appointments() {
             fetchAppointments();
         } catch (err) {
             console.error('Error checking in appointment:', err);
-            alert('Failed to check in appointment.');
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Failed to check in appointment.';
+            alert(msg);
         }
     };
 

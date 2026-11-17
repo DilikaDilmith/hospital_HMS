@@ -37,6 +37,14 @@ public class InvoiceItem {
     @Column(nullable = false, length = 50)
     private String category;
 
+    // Idempotency tracking for the origin of charges (e.g. APPOINTMENT, LAB_TEST, PHARMACY, WARD)
+    @Column(name = "reference_type", length = 50)
+    private String referenceType;
+
+    // Originating event or entity ID
+    @Column(name = "reference_id")
+    private Long referenceId;
+
     // Date and time item was created
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
