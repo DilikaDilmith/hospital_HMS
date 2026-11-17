@@ -2,9 +2,12 @@ package com.hospital.hms.controller;
 
 import com.hospital.hms.dto.AttendanceRequest;
 import com.hospital.hms.dto.EmployeeRequest;
+import com.hospital.hms.dto.LeaveRequest;
 import com.hospital.hms.entity.Attendance;
 import com.hospital.hms.entity.Employee;
+import com.hospital.hms.entity.LeaveRecord;
 import com.hospital.hms.entity.User;
+import com.hospital.hms.service.LeaveRecordService;
 import com.hospital.hms.service.StaffService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -22,6 +25,17 @@ public class StaffController {
 
     @Autowired
     private StaffService staffService;
+
+    @Autowired
+    private LeaveRecordService leaveRecordService;
+
+    public void setStaffService(StaffService staffService) {
+        this.staffService = staffService;
+    }
+
+    public void setLeaveRecordService(LeaveRecordService leaveRecordService) {
+        this.leaveRecordService = leaveRecordService;
+    }
 
     // 1. Get all employees (Admin, Doctors, Receptionists, HR)
     @GetMapping("/employees")
@@ -138,6 +152,77 @@ public class StaffController {
             return ResponseEntity.ok(att);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Check-out failed: " + e.getMessage());
+        }
+    }
+
+    // ==================== Leave Records Management ====================
+
+    // 11. Get all leave records (Admin only)
+    @GetMapping("/leaves")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<List<LeaveRecord>> getAllLeaveRecords() {
+        return ResponseEntity.ok(leaveRecordService.getAllLeaveRecords());
+    }
+
+    // 12. Get single leave record by ID (Admin only)
+    @GetMapping("/leaves/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<?> getLeaveRecordById(@PathVariable Long id) {
+        try {
+            return leaveRecordService.getLeaveRecordById(id)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error retrieving leave record: " + e.getMessage());
+        }
+    }
+
+    // 13. Get leave records for a specific employee (Admin only)
+    @GetMapping("/leaves/employee/{employeeId}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<List<LeaveRecord>> getLeaveRecordsByEmployee(@PathVariable Long employeeId) {
+        return ResponseEntity.ok(leaveRecordService.getLeaveRecordsByEmployeeId(employeeId));
+    }
+
+    // 14. Create a new leave record (Admin only)
+    @PostMapping("/leaves")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<?> createLeaveRecord(@RequestBody LeaveRequest request) {
+        try {
+            LeaveRecord created = leaveRecordService.createLeaveRecord(request);
+            return ResponseEntity.ok(created);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to create leave record: " + e.getMessage());
+        }
+    }
+
+    // 15. Update an existing leave record (Admin only)
+    @PutMapping("/leaves/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<?> updateLeaveRecord(@PathVariable Long id, @RequestBody LeaveRequest request) {
+        try {
+            LeaveRecord updated = leaveRecordService.updateLeaveRecord(id, request);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to update leave record: " + e.getMessage());
+        }
+    }
+
+    // 16. Delete a leave record (Admin only)
+    @DeleteMapping("/leaves/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<?> deleteLeaveRecord(@PathVariable Long id) {
+        try {
+            leaveRecordService.deleteLeaveRecord(id);
+            return ResponseEntity.ok("Leave record deleted successfully.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to delete leave record: " + e.getMessage());
         }
     }
 }
