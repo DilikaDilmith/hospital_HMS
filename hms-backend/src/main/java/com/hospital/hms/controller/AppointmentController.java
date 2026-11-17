@@ -4,8 +4,10 @@ import com.hospital.hms.entity.Appointment;
 import com.hospital.hms.entity.AppointmentStatus;
 import com.hospital.hms.service.AppointmentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,38 +20,83 @@ public class AppointmentController {
     @Autowired
     private AppointmentService appointmentService;
 
-    // Endpoint to book an appointment (defaulted to SCHEDULED)
+    // Endpoint to book an appointment (Patients auto-bind to their own profile; Staff can specify patient)
     @PostMapping
-    public Appointment bookAppointment(@RequestBody Appointment appointment) {
-        // Enforce default status as SCHEDULED for new appointments
-        if (appointment.getStatus() == null) {
-            appointment.setStatus(AppointmentStatus.SCHEDULED);
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_PATIENT')")
+    public ResponseEntity<?> bookAppointment(@RequestBody Appointment appointment, Authentication authentication) {
+        try {
+            if (isCallerPatientOnly(authentication)) {
+                // Ignore any client-sent patient ID or status; securely bind to authenticated principal
+                Appointment created = appointmentService.bookAppointmentForUser(appointment, authentication.getName());
+                return ResponseEntity.status(HttpStatus.CREATED).body(created);
+            } else {
+                Appointment created = appointmentService.bookAppointment(appointment);
+                return ResponseEntity.status(HttpStatus.CREATED).body(created);
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to book appointment: " + e.getMessage());
         }
-        return appointmentService.bookAppointment(appointment);
     }
 
-    // Endpoint to retrieve all appointments
+    // Endpoint to retrieve all appointments (Staff only - Patients must use /my)
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_NURSE')")
     public List<Appointment> getAllAppointments() {
         return appointmentService.getAllAppointments();
     }
 
-    // Endpoint to retrieve an appointment by ID
+    // Endpoint for authenticated patients to view their own appointment schedule
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyAuthority('PATIENT', 'ROLE_PATIENT')")
+    public List<Appointment> getMyAppointments(Authentication authentication) {
+        return appointmentService.getAppointmentsByPatientUsername(authentication.getName());
+    }
+
+    // Endpoint to retrieve an appointment by ID (Staff can view any; Patients can only view their own)
     @GetMapping("/{id}")
-    public ResponseEntity<?> getAppointmentById(@PathVariable Long id) {
-        return appointmentService.getAppointmentById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_NURSE', 'ROLE_PATIENT')")
+    public ResponseEntity<?> getAppointmentById(@PathVariable Long id, Authentication authentication) {
+        Appointment appointment = appointmentService.getAppointmentById(id).orElse(null);
+        if (appointment == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (isCallerPatientOnly(authentication)) {
+            if (appointment.getPatient() == null || appointment.getPatient().getUser() == null
+                    || !appointment.getPatient().getUser().getUsername().equals(authentication.getName())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Access denied: You are not authorized to view other patients' appointments.");
+            }
+        }
+
+        return ResponseEntity.ok(appointment);
     }
 
     // Endpoint to retrieve appointments for a specific patient
     @GetMapping("/patient/{patientId}")
-    public List<Appointment> getAppointmentsByPatientId(@PathVariable Long patientId) {
-        return appointmentService.getAppointmentsByPatientId(patientId);
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_NURSE', 'ROLE_PATIENT')")
+    public ResponseEntity<?> getAppointmentsByPatientId(@PathVariable Long patientId, Authentication authentication) {
+        List<Appointment> list = appointmentService.getAppointmentsByPatientId(patientId);
+
+        if (isCallerPatientOnly(authentication)) {
+            // Verify patientId belongs to the caller
+            boolean mismatch = list.stream().anyMatch(a -> a.getPatient() != null && a.getPatient().getUser() != null
+                    && !a.getPatient().getUser().getUsername().equals(authentication.getName()));
+            if (mismatch) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Access denied: You can only retrieve your own appointment schedule.");
+            }
+        }
+
+        return ResponseEntity.ok(list);
     }
 
     // Endpoint to retrieve appointments for a specific doctor
     @GetMapping("/doctor/{doctorId}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE')")
     public List<Appointment> getAppointmentsByDoctorId(@PathVariable Long doctorId) {
         return appointmentService.getAppointmentsByDoctorId(doctorId);
     }
@@ -97,5 +144,15 @@ public class AppointmentController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to update appointment: " + e.getMessage());
         }
+    }
+
+    private boolean isCallerPatientOnly(Authentication authentication) {
+        if (authentication == null) return false;
+        boolean hasPatient = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("PATIENT") || a.getAuthority().equals("ROLE_PATIENT"));
+        boolean hasStaff = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().contains("ADMIN") || a.getAuthority().contains("DOCTOR") 
+                            || a.getAuthority().contains("RECEPTIONIST") || a.getAuthority().contains("NURSE"));
+        return hasPatient && !hasStaff;
     }
 }

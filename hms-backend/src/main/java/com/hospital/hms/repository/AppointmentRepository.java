@@ -13,6 +13,12 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     // Retrieve all appointments for a specific patient
     List<Appointment> findByPatientId(Long patientId);
 
+    // Retrieve all appointments for a patient ordered by newest first
+    List<Appointment> findByPatientIdOrderByAppointmentDateTimeDesc(Long patientId);
+
+    // Retrieve appointments for a patient by username
+    List<Appointment> findByPatientUserUsernameOrderByAppointmentDateTimeDesc(String username);
+
     // Retrieve all appointments for a specific doctor
     List<Appointment> findByDoctorId(Long doctorId);
 

@@ -2,11 +2,16 @@ package com.hospital.hms.service;
 
 import com.hospital.hms.entity.Appointment;
 import com.hospital.hms.entity.AppointmentStatus;
+import com.hospital.hms.entity.Doctor;
+import com.hospital.hms.entity.Patient;
 import com.hospital.hms.repository.AppointmentRepository;
+import com.hospital.hms.repository.DoctorRepository;
+import com.hospital.hms.repository.PatientRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,15 +22,70 @@ public class AppointmentService {
     private AppointmentRepository appointmentRepository;
 
     @Autowired
+    private PatientRepository patientRepository;
+
+    @Autowired
+    private DoctorRepository doctorRepository;
+
+    @Autowired
     private InvoiceService invoiceService;
 
-    // Save a new appointment: Receptionist / Patient creates it, defaulted to SCHEDULED
+    // Save a new appointment (Staff booking): defaulted to SCHEDULED and validated
     @Transactional
     public Appointment bookAppointment(Appointment appointment) {
-        if (appointment.getStatus() == null) {
-            appointment.setStatus(AppointmentStatus.SCHEDULED);
+        appointment.setStatus(AppointmentStatus.SCHEDULED);
+
+        if (appointment.getAppointmentDateTime() == null) {
+            throw new IllegalArgumentException("Appointment date and time is required.");
         }
+        if (appointment.getAppointmentDateTime().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Appointment date and time must be in the future.");
+        }
+
+        if (appointment.getPatient() != null && appointment.getPatient().getId() != null) {
+            Patient patient = patientRepository.findById(appointment.getPatient().getId())
+                    .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + appointment.getPatient().getId()));
+            appointment.setPatient(patient);
+        }
+
+        if (appointment.getDoctor() != null && appointment.getDoctor().getId() != null) {
+            Doctor doctor = doctorRepository.findById(appointment.getDoctor().getId())
+                    .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + appointment.getDoctor().getId()));
+            appointment.setDoctor(doctor);
+        }
+
         return appointmentRepository.save(appointment);
+    }
+
+    // Save a new appointment directly for the authenticated patient user (prevents identity spoofing)
+    @Transactional
+    public Appointment bookAppointmentForUser(Appointment appointment, String username) {
+        Patient patient = patientRepository.findByUserUsername(username)
+                .orElseThrow(() -> new RuntimeException("No patient profile found for user: " + username + ". Please ensure your patient profile exists."));
+
+        if (appointment.getAppointmentDateTime() == null) {
+            throw new IllegalArgumentException("Appointment date and time is required.");
+        }
+        if (appointment.getAppointmentDateTime().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Appointment date and time must be in the future.");
+        }
+
+        if (appointment.getDoctor() == null || appointment.getDoctor().getId() == null) {
+            throw new IllegalArgumentException("A valid doctor must be selected.");
+        }
+        Doctor doctor = doctorRepository.findById(appointment.getDoctor().getId())
+                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + appointment.getDoctor().getId()));
+
+        appointment.setPatient(patient);
+        appointment.setDoctor(doctor);
+        appointment.setStatus(AppointmentStatus.SCHEDULED); // Enforce server-side default
+
+        return appointmentRepository.save(appointment);
+    }
+
+    // Retrieve appointments for a specific patient by username
+    public List<Appointment> getAppointmentsByPatientUsername(String username) {
+        return appointmentRepository.findByPatientUserUsernameOrderByAppointmentDateTimeDesc(username);
     }
 
     // Retrieve all appointments from the database

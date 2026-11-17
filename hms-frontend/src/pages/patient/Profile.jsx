@@ -11,16 +11,19 @@ function PatientProfile() {
 
     useEffect(() => {
         const fetchProfile = async () => {
-            // 1. Get User Data
-            const userRes = await axios.get('http://localhost:8080/api/users/profile', config);
-            setUser(userRes.data);
+            try {
+                // 1. Get User Data
+                const userRes = await axios.get('http://localhost:8080/api/users/profile', config);
+                setUser(userRes.data);
 
-            // 2. Get Patient Data (Match by name)
-            const patRes = await axios.get('http://localhost:8080/api/patients', config);
-            const currentPatient = patRes.data.find(p => 
-                `${p.firstName} ${p.lastName}` === userRes.data.fullName
-            );
-            if (currentPatient) setPatient(currentPatient);
+                // 2. Get Patient Data directly from linked profile endpoint
+                const patRes = await axios.get('http://localhost:8080/api/patients/profile', config);
+                if (patRes.data) {
+                    setPatient(patRes.data);
+                }
+            } catch (error) {
+                console.error("Error loading profile details:", error);
+            }
         };
         fetchProfile();
     }, []);
@@ -41,7 +44,7 @@ function PatientProfile() {
                     <p className="text-cyan-600 font-semibold flex items-center gap-2 mt-1">
                         Patient
                     </p>
-                    
+
                     {patient ? (
                         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-gray-50 p-4 rounded-xl flex items-center gap-3">

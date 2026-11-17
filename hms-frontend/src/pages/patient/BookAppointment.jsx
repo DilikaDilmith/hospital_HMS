@@ -32,26 +32,15 @@ function BookAppointment() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            // Note: For a real app, we need the Patient ID linked to this User.
-            // For now, let's just create an appointment with the selected doctor.
-            // (We will link the patient ID properly later).
-
-            // Since this is a demo, we are fetching the patient list and using the first one, 
-            // or you can modify this to match the logged-in user's name.
-            const patientRes = await axios.get('http://localhost:8080/api/patients', config);
-            const patientId = patientRes.data.length > 0 ? patientRes.data[0].id : null; // Dummy link for now
-
-            if (!patientId) {
-                alert("No patient record found. Please contact reception.");
-                return;
+            let formattedTime = appointmentData.appointmentDateTime;
+            if (formattedTime && formattedTime.length === 16) {
+                formattedTime += ':00';
             }
 
             const payload = {
-                appointmentDateTime: appointmentData.appointmentDateTime,
-                status: 'BOOKED',
+                appointmentDateTime: formattedTime,
                 reason: appointmentData.reason,
-                patient: { id: patientId },
-                doctor: { id: appointmentData.doctorId }
+                doctor: { id: parseInt(appointmentData.doctorId, 10) }
             };
 
             await axios.post('http://localhost:8080/api/appointments', payload, config);
@@ -59,7 +48,8 @@ function BookAppointment() {
             setTimeout(() => navigate('/patient/dashboard'), 2000);
         } catch (error) {
             console.error("Error booking appointment:", error);
-            alert("Failed to book appointment.");
+            const errMsg = error.response?.data?.message || error.response?.data || "Failed to book appointment.";
+            alert(errMsg);
         }
     };
 

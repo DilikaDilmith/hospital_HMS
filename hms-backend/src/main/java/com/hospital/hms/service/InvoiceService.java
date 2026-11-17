@@ -42,6 +42,11 @@ public class InvoiceService {
         return invoiceRepository.findByPatientIdOrderByDateDesc(patientId);
     }
 
+    // Retrieve all invoices for an authenticated patient by username
+    public List<Invoice> getInvoicesByPatientUsername(String username) {
+        return invoiceRepository.findByPatientUserUsernameOrderByDateDesc(username);
+    }
+
     // Create a new invoice
     @Transactional
     public Invoice createInvoice(Invoice invoice) {

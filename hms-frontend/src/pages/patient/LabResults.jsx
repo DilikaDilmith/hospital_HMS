@@ -11,7 +11,7 @@ function LabResults() {
     useEffect(() => {
         const fetchLabTests = async () => {
             try {
-                const response = await axios.get('http://localhost:8080/api/lab-tests', config);
+                const response = await axios.get('http://localhost:8080/api/lab-tests/my', config);
                 setLabTests(response.data);
             } catch (error) {
                 console.error("Error fetching lab tests:", error);
@@ -24,7 +24,7 @@ function LabResults() {
         <div>
             <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <FaFlask className="text-yellow-500"/> My Lab Results
+                    <FaFlask className="text-yellow-500" /> My Lab Results
                 </h2>
                 <p className="text-gray-500">Check the status and results of your laboratory tests.</p>
             </div>

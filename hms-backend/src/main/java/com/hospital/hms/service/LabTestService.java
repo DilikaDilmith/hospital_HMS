@@ -50,6 +50,11 @@ public class LabTestService {
         return labTestRepository.findByPatientIdOrderByRequestedAtDesc(patientId);
     }
 
+    // Retrieve lab tests for an authenticated patient by username
+    public List<LabTest> getTestsByPatientUsername(String username) {
+        return labTestRepository.findByPatientUserUsernameOrderByRequestedAtDesc(username);
+    }
+
     // Retrieve lab tests requested by a specific doctor
     public List<LabTest> getTestsByDoctorId(Long doctorId) {
         return labTestRepository.findByDoctorIdOrderByRequestedAtDesc(doctorId);

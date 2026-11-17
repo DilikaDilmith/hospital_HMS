@@ -143,4 +143,9 @@ public class AdmissionService {
     public List<Admission> getAdmissionsByPatientId(Long patientId) {
         return admissionRepository.findByPatientIdOrderByAdmissionDateDesc(patientId);
     }
+
+    // Retrieve admissions for a patient by user username
+    public List<Admission> getAdmissionsByPatientUsername(String username) {
+        return admissionRepository.findByPatientUserUsernameOrderByAdmissionDateDesc(username);
+    }
 }

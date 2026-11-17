@@ -19,6 +19,9 @@ public interface LabTestRepository extends JpaRepository<LabTest, Long> {
     // Retrieve all tests for a specific patient
     List<LabTest> findByPatientIdOrderByRequestedAtDesc(Long patientId);
 
+    // Retrieve all tests for a patient by username
+    List<LabTest> findByPatientUserUsernameOrderByRequestedAtDesc(String username);
+
     // Retrieve all tests ordered by a specific doctor
     List<LabTest> findByDoctorIdOrderByRequestedAtDesc(Long doctorId);
 

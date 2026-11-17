@@ -17,6 +17,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     // Retrieve all invoices for a specific patient
     List<Invoice> findByPatientIdOrderByDateDesc(Long patientId);
 
+    // Retrieve all invoices for a patient by username
+    List<Invoice> findByPatientUserUsernameOrderByDateDesc(String username);
+
     // Retrieve active (UNPAID) invoice for a patient, ordered by latest first
     Optional<Invoice> findFirstByPatientIdAndStatusOrderByIdDesc(Long patientId, String status);
 

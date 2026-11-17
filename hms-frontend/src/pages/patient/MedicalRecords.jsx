@@ -11,8 +11,8 @@ function MedicalRecords() {
     useEffect(() => {
         const fetchRecords = async () => {
             try {
-                // Fetch all records (We will filter them by patient later)
-                const response = await axios.get('http://localhost:8080/api/medical-records', config);
+                // Fetch authenticated patient's medical records
+                const response = await axios.get('http://localhost:8080/api/medical-records/my', config);
                 setRecords(response.data);
             } catch (error) {
                 console.error("Error fetching records:", error);
@@ -25,7 +25,7 @@ function MedicalRecords() {
         <div>
             <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <FaNotesMedical className="text-green-600"/> My Medical Records
+                    <FaNotesMedical className="text-green-600" /> My Medical Records
                 </h2>
                 <p className="text-gray-500">View your past diagnoses and prescribed medications.</p>
             </div>
@@ -45,7 +45,7 @@ function MedicalRecords() {
                                     {new Date(record.recordDate).toLocaleDateString()}
                                 </span>
                             </div>
-                            
+
                             <div className="bg-gray-50 p-4 rounded-lg">
                                 <p className="text-sm font-semibold text-gray-700 mb-1">Prescription:</p>
                                 <p className="text-sm text-gray-600">{record.prescription}</p>

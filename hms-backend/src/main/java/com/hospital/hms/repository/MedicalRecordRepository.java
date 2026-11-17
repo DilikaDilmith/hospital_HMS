@@ -12,4 +12,10 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Lo
 
     // Find records by their status (e.g., only show PENDING ones to pharmacist)
     List<MedicalRecord> findByStatus(String status);
+
+    // Find all medical records for a specific patient
+    List<MedicalRecord> findByPatientIdOrderByRecordDateDesc(Long patientId);
+
+    // Find all medical records for a patient by username
+    List<MedicalRecord> findByPatientUserUsernameOrderByRecordDateDesc(String username);
 }

@@ -35,6 +35,21 @@ public class MedicalRecordService {
         return medicalRecordRepository.findAll();
     }
 
+    // Get medical records for a patient by username (scoped to authenticated user)
+    public List<MedicalRecord> getRecordsByPatientUsername(String username) {
+        return medicalRecordRepository.findByPatientUserUsernameOrderByRecordDateDesc(username);
+    }
+
+    // Get medical records for a specific patient ID
+    public List<MedicalRecord> getRecordsByPatientId(Long patientId) {
+        return medicalRecordRepository.findByPatientIdOrderByRecordDateDesc(patientId);
+    }
+
+    // Get single medical record by ID
+    public java.util.Optional<MedicalRecord> getRecordById(Long id) {
+        return medicalRecordRepository.findById(id);
+    }
+
     // Update status to DISPENSED, deduct from earliest expiring batch (FEFO), and auto-bill
     @Transactional
     public MedicalRecord dispenseRecord(Long id, Long medicineId, Integer quantity) {

@@ -4,8 +4,10 @@ import com.hospital.hms.entity.Invoice;
 import com.hospital.hms.entity.InvoiceItem;
 import com.hospital.hms.service.InvoiceService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,27 +19,56 @@ public class InvoiceController {
     @Autowired
     private InvoiceService invoiceService;
 
-    // Endpoint to retrieve all invoices
+    // Endpoint to retrieve all invoices (Staff only - Patients use /my)
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'ACCOUNTANT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_ACCOUNTANT')")
     public List<Invoice> getAllInvoices() {
         return invoiceService.getAllInvoices();
     }
 
-    // Endpoint to retrieve an invoice by ID
+    // Endpoint for authenticated patients to retrieve their own invoices
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyAuthority('PATIENT', 'ROLE_PATIENT')")
+    public List<Invoice> getMyInvoices(Authentication authentication) {
+        return invoiceService.getInvoicesByPatientUsername(authentication.getName());
+    }
+
+    // Endpoint to retrieve an invoice by ID (Staff can view any; Patient can only view their own)
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'ACCOUNTANT', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_ACCOUNTANT', 'ROLE_PATIENT')")
-    public ResponseEntity<?> getInvoiceById(@PathVariable Long id) {
-        return invoiceService.getInvoiceById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> getInvoiceById(@PathVariable Long id, Authentication authentication) {
+        Invoice invoice = invoiceService.getInvoiceById(id).orElse(null);
+        if (invoice == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (isCallerPatientOnly(authentication)) {
+            if (invoice.getPatient() == null || invoice.getPatient().getUser() == null
+                    || !invoice.getPatient().getUser().getUsername().equals(authentication.getName())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Access denied: You are not authorized to view other patients' billing invoices.");
+            }
+        }
+
+        return ResponseEntity.ok(invoice);
     }
 
     // Endpoint to retrieve invoices for a specific patient
     @GetMapping("/patient/{patientId}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'ACCOUNTANT', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_ACCOUNTANT', 'ROLE_PATIENT')")
-    public List<Invoice> getInvoicesByPatientId(@PathVariable Long patientId) {
-        return invoiceService.getInvoicesByPatientId(patientId);
+    public ResponseEntity<?> getInvoicesByPatientId(@PathVariable Long patientId, Authentication authentication) {
+        List<Invoice> list = invoiceService.getInvoicesByPatientId(patientId);
+
+        if (isCallerPatientOnly(authentication)) {
+            boolean mismatch = list.stream().anyMatch(inv -> inv.getPatient() != null && inv.getPatient().getUser() != null
+                    && !inv.getPatient().getUser().getUsername().equals(authentication.getName()));
+            if (mismatch) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Access denied: You cannot view other patients' billing history.");
+            }
+        }
+
+        return ResponseEntity.ok(list);
     }
 
     // Endpoint to generate a new invoice

@@ -82,11 +82,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        // Admin accounts are always enabled
-        if (role == Role.ADMIN) {
-            return true;
-        }
-        // Allow if explicitly APPROVED, or legacy accounts without status
-        return status == null || "APPROVED".equalsIgnoreCase(status);
+        // Enforce approval status for all roles including ADMIN
+        return status != null && "APPROVED".equalsIgnoreCase(status.trim());
     }
 }
