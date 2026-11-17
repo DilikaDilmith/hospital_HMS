@@ -215,10 +215,20 @@ function MedicineBatches() {
                             {filteredBatches.length > 0 ? (
                                 filteredBatches.map((b) => {
                                     const expiry = getExpiryInfo(b.expiryDate);
+                                    const isExpired = expiry.status === 'EXPIRED';
                                     return (
-                                        <tr key={b.id} className="hover:bg-slate-50/80 transition">
+                                        <tr key={b.id} className={`transition ${
+                                            isExpired 
+                                                ? 'bg-rose-50/70 hover:bg-rose-100/60 border-l-4 border-l-rose-500' 
+                                                : 'hover:bg-slate-50/80'
+                                        }`}>
                                             <td className="p-4 font-bold text-teal-700">
-                                                {b.batchNumber}
+                                                <div className="flex items-center gap-1.5">
+                                                    {isExpired && (
+                                                        <FaExclamationTriangle className="text-rose-500 flex-shrink-0" title="Expired Batch - Excluded from Dispensing" />
+                                                    )}
+                                                    <span className={isExpired ? 'text-rose-700 font-extrabold' : ''}>{b.batchNumber}</span>
+                                                </div>
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex items-center gap-2">

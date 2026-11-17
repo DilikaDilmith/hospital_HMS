@@ -50,32 +50,28 @@ public class MedicalRecordService {
         return medicalRecordRepository.findById(id);
     }
 
-    // Update status to DISPENSED, deduct from earliest expiring batch (FEFO), and auto-bill
+    // Update status to DISPENSED, deduct from earliest expiring valid batch (FEFO), and auto-bill atomically
     @Transactional
     public MedicalRecord dispenseRecord(Long id, Long medicineId, Integer quantity) {
         MedicalRecord record = medicalRecordRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Record not found with id: " + id));
 
-        record.setStatus("DISPENSED");
-        MedicalRecord saved = medicalRecordRepository.save(record);
+        if ("DISPENSED".equalsIgnoreCase(record.getStatus())) {
+            throw new IllegalStateException("Prescription #" + id + " has already been dispensed.");
+        }
 
         // Deduct from batch and auto-bill if medicine was selected
         if (medicineId != null && quantity != null && quantity > 0) {
-            try {
-                medicineService.dispenseMedicine(medicineId, quantity, record.getPatient());
-            } catch (Exception e) {
-                System.err.println("⚠️ Warning during batch deduction: " + e.getMessage());
-            }
+            medicineService.dispenseMedicine(medicineId, quantity, record.getPatient());
         } else if (record.getPatient() != null) {
             // General prescription dispensing charge
-            try {
-                String medName = (record.getPrescription() != null && !record.getPrescription().trim().isEmpty())
-                        ? record.getPrescription().trim()
-                        : "Prescribed Medication";
-                invoiceService.addPharmacyFee(record.getPatient(), medName, 1, 1200.0);
-            } catch (Exception ignored) {}
+            String medName = (record.getPrescription() != null && !record.getPrescription().trim().isEmpty())
+                    ? record.getPrescription().trim()
+                    : "Prescribed Medication";
+            invoiceService.addPharmacyFee(record.getPatient(), medName, 1, 1200.0);
         }
 
-        return saved;
+        record.setStatus("DISPENSED");
+        return medicalRecordRepository.save(record);
     }
 }

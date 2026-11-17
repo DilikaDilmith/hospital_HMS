@@ -88,20 +88,29 @@ public class MedicalRecordController {
     // Endpoint for Pharmacists to mark a prescription as dispensed with batch deduction and billing
     @PutMapping("/{id}/dispense")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'PHARMACIST', 'ROLE_ADMIN', 'ROLE_PHARMACIST')")
-    public MedicalRecord dispenseRecord(
+    public ResponseEntity<?> dispenseRecord(
             @PathVariable Long id, 
             @RequestBody(required = false) Map<String, Object> payload) {
-        Long medicineId = null;
-        Integer quantity = null;
-        if (payload != null) {
-            if (payload.get("medicineId") != null && !payload.get("medicineId").toString().isEmpty()) {
-                medicineId = Long.parseLong(payload.get("medicineId").toString());
+        try {
+            Long medicineId = null;
+            Integer quantity = null;
+            if (payload != null) {
+                if (payload.get("medicineId") != null && !payload.get("medicineId").toString().isEmpty()) {
+                    medicineId = Long.parseLong(payload.get("medicineId").toString());
+                }
+                if (payload.get("quantity") != null && !payload.get("quantity").toString().isEmpty()) {
+                    quantity = Integer.parseInt(payload.get("quantity").toString());
+                }
             }
-            if (payload.get("quantity") != null && !payload.get("quantity").toString().isEmpty()) {
-                quantity = Integer.parseInt(payload.get("quantity").toString());
-            }
+            MedicalRecord result = medicalRecordService.dispenseRecord(id, medicineId, quantity);
+            return ResponseEntity.ok(result);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to dispense prescription: " + e.getMessage());
         }
-        return medicalRecordService.dispenseRecord(id, medicineId, quantity);
     }
 
     private boolean isCallerPatientOnly(Authentication authentication) {

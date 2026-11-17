@@ -94,6 +94,10 @@ public class MedicineController {
 
             Map<String, Object> result = medicineService.dispenseMedicine(id, quantity, patient);
             return ResponseEntity.ok(result);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to dispense medicine: " + e.getMessage());
         }
