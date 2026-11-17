@@ -118,4 +118,14 @@ public class InvoiceController {
             return ResponseEntity.badRequest().body("Failed to delete invoice: " + e.getMessage());
         }
     }
+
+    private boolean isCallerPatientOnly(Authentication authentication) {
+        if (authentication == null) return false;
+        boolean hasPatient = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("PATIENT") || a.getAuthority().equals("ROLE_PATIENT"));
+        boolean hasStaff = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().contains("ADMIN") || a.getAuthority().contains("RECEPTIONIST") 
+                            || a.getAuthority().contains("ACCOUNTANT") || a.getAuthority().contains("DOCTOR"));
+        return hasPatient && !hasStaff;
+    }
 }

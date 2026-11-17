@@ -9,6 +9,7 @@ function BookAppointment() {
         doctorId: '', appointmentDateTime: '', reason: ''
     });
     const [message, setMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
@@ -27,10 +28,14 @@ function BookAppointment() {
         fetchDoctors();
     }, []);
 
-    const handleChange = (e) => setAppointmentData({ ...appointmentData, [e.target.name]: e.target.value });
+    const handleChange = (e) => {
+        setAppointmentData({ ...appointmentData, [e.target.name]: e.target.value });
+        if (errorMessage) setErrorMessage('');
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setErrorMessage('');
         try {
             let formattedTime = appointmentData.appointmentDateTime;
             if (formattedTime && formattedTime.length === 16) {
@@ -48,8 +53,8 @@ function BookAppointment() {
             setTimeout(() => navigate('/patient/dashboard'), 2000);
         } catch (error) {
             console.error("Error booking appointment:", error);
-            const errMsg = error.response?.data?.message || error.response?.data || "Failed to book appointment.";
-            alert(errMsg);
+            const errMsg = error.response?.data?.message || (typeof error.response?.data === 'string' ? error.response.data : null) || "Failed to book appointment.";
+            setErrorMessage(errMsg);
         }
     };
 
@@ -65,6 +70,13 @@ function BookAppointment() {
             {message && (
                 <div className="bg-green-100 text-green-700 p-4 rounded-lg mb-6">
                     {message}
+                </div>
+            )}
+
+            {errorMessage && (
+                <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6 flex items-center justify-between">
+                    <span>{errorMessage}</span>
+                    <button type="button" onClick={() => setErrorMessage('')} className="font-bold text-red-700 hover:text-red-900 ml-2">&times;</button>
                 </div>
             )}
 

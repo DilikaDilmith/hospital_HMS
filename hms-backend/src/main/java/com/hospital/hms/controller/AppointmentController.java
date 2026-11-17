@@ -2,6 +2,7 @@ package com.hospital.hms.controller;
 
 import com.hospital.hms.entity.Appointment;
 import com.hospital.hms.entity.AppointmentStatus;
+import com.hospital.hms.exception.AppointmentConflictException;
 import com.hospital.hms.service.AppointmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -33,6 +34,8 @@ public class AppointmentController {
                 Appointment created = appointmentService.bookAppointment(appointment);
                 return ResponseEntity.status(HttpStatus.CREATED).body(created);
             }
+        } catch (AppointmentConflictException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {

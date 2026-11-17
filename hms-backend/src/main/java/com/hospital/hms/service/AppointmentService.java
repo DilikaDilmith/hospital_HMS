@@ -4,6 +4,7 @@ import com.hospital.hms.entity.Appointment;
 import com.hospital.hms.entity.AppointmentStatus;
 import com.hospital.hms.entity.Doctor;
 import com.hospital.hms.entity.Patient;
+import com.hospital.hms.exception.AppointmentConflictException;
 import com.hospital.hms.repository.AppointmentRepository;
 import com.hospital.hms.repository.DoctorRepository;
 import com.hospital.hms.repository.PatientRepository;
@@ -30,6 +31,23 @@ public class AppointmentService {
     @Autowired
     private InvoiceService invoiceService;
 
+    // Validate that the doctor does not already have an active (non-cancelled) appointment at the requested date and time
+    public void validateNoDoctorConflict(Long doctorId, LocalDateTime dateTime, Long currentAppointmentId) {
+        boolean conflict;
+        if (currentAppointmentId != null) {
+            conflict = appointmentRepository.existsByDoctorIdAndAppointmentDateTimeAndStatusNotAndIdNot(
+                    doctorId, dateTime, AppointmentStatus.CANCELLED, currentAppointmentId);
+        } else {
+            conflict = appointmentRepository.existsByDoctorIdAndAppointmentDateTimeAndStatusNot(
+                    doctorId, dateTime, AppointmentStatus.CANCELLED);
+        }
+
+        if (conflict) {
+            throw new AppointmentConflictException(
+                    "The selected doctor already has an appointment booked at this date and time. Please choose another time slot.");
+        }
+    }
+
     // Save a new appointment (Staff booking): defaulted to SCHEDULED and validated
     @Transactional
     public Appointment bookAppointment(Appointment appointment) {
@@ -42,17 +60,22 @@ public class AppointmentService {
             throw new IllegalArgumentException("Appointment date and time must be in the future.");
         }
 
+        if (appointment.getDoctor() == null || appointment.getDoctor().getId() == null) {
+            throw new IllegalArgumentException("A valid doctor must be selected.");
+        }
+
+        Doctor doctor = doctorRepository.findById(appointment.getDoctor().getId())
+                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + appointment.getDoctor().getId()));
+        appointment.setDoctor(doctor);
+
         if (appointment.getPatient() != null && appointment.getPatient().getId() != null) {
             Patient patient = patientRepository.findById(appointment.getPatient().getId())
                     .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + appointment.getPatient().getId()));
             appointment.setPatient(patient);
         }
 
-        if (appointment.getDoctor() != null && appointment.getDoctor().getId() != null) {
-            Doctor doctor = doctorRepository.findById(appointment.getDoctor().getId())
-                    .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + appointment.getDoctor().getId()));
-            appointment.setDoctor(doctor);
-        }
+        // Prevent double booking for the same doctor at the same date and time (excluding CANCELLED)
+        validateNoDoctorConflict(doctor.getId(), appointment.getAppointmentDateTime(), appointment.getId());
 
         return appointmentRepository.save(appointment);
     }
@@ -79,6 +102,9 @@ public class AppointmentService {
         appointment.setPatient(patient);
         appointment.setDoctor(doctor);
         appointment.setStatus(AppointmentStatus.SCHEDULED); // Enforce server-side default
+
+        // Prevent double booking for the same doctor at the same date and time (excluding CANCELLED)
+        validateNoDoctorConflict(doctor.getId(), appointment.getAppointmentDateTime(), appointment.getId());
 
         return appointmentRepository.save(appointment);
     }
