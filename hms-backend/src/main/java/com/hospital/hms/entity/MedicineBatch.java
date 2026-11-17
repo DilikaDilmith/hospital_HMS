@@ -45,13 +45,23 @@ public class MedicineBatch {
     private LocalDateTime createdAt;
 
     @PrePersist
-    protected void onCreate() {
+    @PreUpdate
+    protected void onValidate() {
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
         }
         if (this.quantity == null) {
             this.quantity = 0;
+        } else if (this.quantity < 0) {
+            throw new IllegalStateException("Batch quantity cannot be negative: " + this.quantity);
         }
+    }
+
+    public void setQuantity(Integer quantity) {
+        if (quantity != null && quantity < 0) {
+            throw new IllegalArgumentException("Batch quantity cannot be negative: " + quantity);
+        }
+        this.quantity = quantity;
     }
 }
 

@@ -100,13 +100,14 @@ public class MedicineService {
             throw new IllegalArgumentException("Dispense quantity must be greater than zero.");
         }
 
-        Medicine medicine = medicineRepository.findById(medicineId)
+        // 1. Acquire pessimistic write lock on the Medicine row to serialize concurrent dispensing
+        Medicine medicine = medicineRepository.findByIdForUpdate(medicineId)
                 .orElseThrow(() -> new RuntimeException("Medicine not found with ID: " + medicineId));
 
         LocalDate today = LocalDate.now();
 
-        // 1. Fetch only valid, non-expired batches with quantity > 0, ordered by FEFO (earliest expiry first)
-        List<MedicineBatch> validBatches = medicineBatchRepository.findValidBatchesForDispensing(medicineId, 0, today);
+        // 2. Fetch only valid, non-expired batches with quantity > 0, ordered by FEFO with lock
+        List<MedicineBatch> validBatches = medicineBatchRepository.findValidBatchesForDispensingForUpdate(medicineId, 0, today);
 
         // 2. Calculate total available valid non-expired quantity
         int totalValidStock = validBatches.stream()
@@ -132,7 +133,11 @@ public class MedicineService {
             if (remainingToDeduct <= 0) break;
 
             int deduct = Math.min(b.getQuantity(), remainingToDeduct);
-            b.setQuantity(b.getQuantity() - deduct);
+            int newQty = b.getQuantity() - deduct;
+            if (newQty < 0) {
+                throw new IllegalStateException("Batch quantity cannot be negative (" + newQty + ") for batch: " + b.getBatchNumber());
+            }
+            b.setQuantity(newQty);
             remainingToDeduct -= deduct;
             medicineBatchRepository.save(b);
 

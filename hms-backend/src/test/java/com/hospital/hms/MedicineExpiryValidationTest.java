@@ -77,8 +77,8 @@ public class MedicineExpiryValidationTest {
         validBatch2.setQuantity(20);
         validBatch2.setExpiryDate(LocalDate.now().plusMonths(6));
 
-        when(medicineRepository.findById(10L)).thenReturn(Optional.of(medicine));
-        when(medicineBatchRepository.findValidBatchesForDispensing(eq(10L), eq(0), any(LocalDate.class)))
+        when(medicineRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(medicine));
+        when(medicineBatchRepository.findValidBatchesForDispensingForUpdate(eq(10L), eq(0), any(LocalDate.class)))
                 .thenReturn(Arrays.asList(validBatch1, validBatch2));
 
         // Request 15 units: should consume all 10 from Batch 1, and 5 from Batch 2
@@ -113,9 +113,9 @@ public class MedicineExpiryValidationTest {
         validBatch.setQuantity(30);
         validBatch.setExpiryDate(LocalDate.now().plusMonths(3));
 
-        when(medicineRepository.findById(10L)).thenReturn(Optional.of(medicine));
-        // The repository method findValidBatchesForDispensing strictly excludes the expired batch
-        when(medicineBatchRepository.findValidBatchesForDispensing(eq(10L), eq(0), any(LocalDate.class)))
+        when(medicineRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(medicine));
+        // The repository method findValidBatchesForDispensingForUpdate strictly excludes the expired batch
+        when(medicineBatchRepository.findValidBatchesForDispensingForUpdate(eq(10L), eq(0), any(LocalDate.class)))
                 .thenReturn(Collections.singletonList(validBatch));
 
         // Request 10 units
@@ -134,9 +134,9 @@ public class MedicineExpiryValidationTest {
     @Test
     @DisplayName("Task 2.3: Reject dispensing when all available stock is expired")
     void testRejectDispensingWhenAllStockIsExpired() {
-        when(medicineRepository.findById(10L)).thenReturn(Optional.of(medicine));
+        when(medicineRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(medicine));
         // No valid non-expired batches found
-        when(medicineBatchRepository.findValidBatchesForDispensing(eq(10L), eq(0), any(LocalDate.class)))
+        when(medicineBatchRepository.findValidBatchesForDispensingForUpdate(eq(10L), eq(0), any(LocalDate.class)))
                 .thenReturn(Collections.emptyList());
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> {
@@ -161,8 +161,8 @@ public class MedicineExpiryValidationTest {
         validBatch.setQuantity(5);
         validBatch.setExpiryDate(LocalDate.now().plusMonths(1));
 
-        when(medicineRepository.findById(10L)).thenReturn(Optional.of(medicine));
-        when(medicineBatchRepository.findValidBatchesForDispensing(eq(10L), eq(0), any(LocalDate.class)))
+        when(medicineRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(medicine));
+        when(medicineBatchRepository.findValidBatchesForDispensingForUpdate(eq(10L), eq(0), any(LocalDate.class)))
                 .thenReturn(Collections.singletonList(validBatch));
 
         // Request 10 units (more than 5 valid units)
