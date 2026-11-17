@@ -7,6 +7,7 @@ import com.hospital.hms.entity.Role;
 import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.UserRepository;
 import com.hospital.hms.security.JwtService;
+import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -38,6 +39,13 @@ public class AuthController {
     @Autowired
     private PatientService patientService;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
     // Endpoint to handle user login requests
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest loginRequest) {
@@ -54,15 +62,35 @@ public class AuthController {
                 User user = userRepository.findByUsername(loginRequest.getUsername())
                         .orElseThrow(() -> new RuntimeException("User not found!"));
 
+                if (auditLogService != null) {
+                    auditLogService.log(loginRequest.getUsername(), "USER_LOGIN", "SUCCESS",
+                            "User logged in successfully with role: " + user.getRole().name());
+                }
+
                 return ResponseEntity.ok(new AuthResponse(token, user.getRole().name()));
             } else {
+                if (auditLogService != null) {
+                    auditLogService.log(loginRequest.getUsername(), "USER_LOGIN", "FAILED", "Invalid credentials");
+                }
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials!");
             }
         } catch (BadCredentialsException e) {
+            if (auditLogService != null) {
+                auditLogService.log(loginRequest != null ? loginRequest.getUsername() : "UNKNOWN",
+                        "USER_LOGIN", "FAILED", "Invalid username or password");
+            }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password!");
         } catch (DisabledException e) {
+            if (auditLogService != null) {
+                auditLogService.log(loginRequest != null ? loginRequest.getUsername() : "UNKNOWN",
+                        "USER_LOGIN", "FAILED", "Account pending administrator approval");
+            }
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Your account is pending administrator approval!");
         } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(loginRequest != null ? loginRequest.getUsername() : "UNKNOWN",
+                        "USER_LOGIN", "FAILED", "Authentication failed");
+            }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Login failed: " + e.getMessage());
         }
     }

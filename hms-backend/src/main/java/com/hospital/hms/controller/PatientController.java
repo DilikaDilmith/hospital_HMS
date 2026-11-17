@@ -1,6 +1,7 @@
 package com.hospital.hms.controller;
 
 import com.hospital.hms.entity.Patient;
+import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,16 +19,40 @@ public class PatientController {
     @Autowired
     private PatientService patientService;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
+    public void setPatientService(PatientService patientService) {
+        this.patientService = patientService;
+    }
+
     // Endpoint to register a new patient (POST request)
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR')")
-    public ResponseEntity<?> registerPatient(@RequestBody Patient patient) {
+    public ResponseEntity<?> registerPatient(@RequestBody Patient patient, Authentication authentication) {
+        String actor = (authentication != null) ? authentication.getName() : "STAFF";
         try {
             Patient savedPatient = patientService.registerPatient(patient);
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_REGISTER", "SUCCESS",
+                        "Registered patient ID: " + savedPatient.getId() + " (" + savedPatient.getFirstName() + " " + savedPatient.getLastName() + ")");
+            }
             return ResponseEntity.ok(savedPatient);
         } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_REGISTER", "FAILED",
+                        "Failed patient registration: " + e.getMessage());
+            }
             return ResponseEntity.badRequest().body("Failed to register patient: " + e.getMessage());
         }
+    }
+
+    public ResponseEntity<?> registerPatient(Patient patient) {
+        return registerPatient(patient, null);
     }
 
     // Endpoint to get a list of all patients (Staff only - Patients are forbidden)
@@ -60,8 +85,14 @@ public class PatientController {
         String username = authentication.getName();
         try {
             Patient updated = patientService.updatePatientByUsername(username, updatedDetails);
+            if (auditLogService != null) {
+                auditLogService.log(username, "PATIENT_PROFILE_UPDATE", "SUCCESS", "Patient updated personal profile");
+            }
             return ResponseEntity.ok(updated);
         } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(username, "PATIENT_PROFILE_UPDATE", "FAILED", "Failed profile update: " + e.getMessage());
+            }
             return ResponseEntity.badRequest().body("Failed to update profile: " + e.getMessage());
         }
     }
@@ -104,8 +135,16 @@ public class PatientController {
             }
 
             Patient patient = patientService.updatePatient(id, updatedPatient);
+            if (auditLogService != null) {
+                auditLogService.log(authentication != null ? authentication.getName() : "STAFF",
+                        "PATIENT_UPDATE", "SUCCESS", "Updated patient record ID: " + id);
+            }
             return ResponseEntity.ok(patient);
         } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(authentication != null ? authentication.getName() : "STAFF",
+                        "PATIENT_UPDATE", "FAILED", "Failed to update patient ID: " + id + " - " + e.getMessage());
+            }
             return ResponseEntity.badRequest().body("Failed to update patient: " + e.getMessage());
         }
     }

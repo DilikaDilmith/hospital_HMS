@@ -1,6 +1,7 @@
 package com.hospital.hms.controller;
 
 import com.hospital.hms.entity.MedicalRecord;
+import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.MedicalRecordService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -19,11 +20,33 @@ public class MedicalRecordController {
     @Autowired
     private MedicalRecordService medicalRecordService;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
+    public void setMedicalRecordService(MedicalRecordService medicalRecordService) {
+        this.medicalRecordService = medicalRecordService;
+    }
+
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
     // Endpoint to create a new medical record (Only Doctors and Admins can create)
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'ROLE_ADMIN', 'ROLE_DOCTOR')")
-    public MedicalRecord createRecord(@RequestBody MedicalRecord record) {
-        return medicalRecordService.createRecord(record);
+    public MedicalRecord createRecord(@RequestBody MedicalRecord record, Authentication authentication) {
+        MedicalRecord created = medicalRecordService.createRecord(record);
+        if (auditLogService != null) {
+            String actor = (authentication != null) ? authentication.getName() : "DOCTOR";
+            Long patientId = (created.getPatient() != null) ? created.getPatient().getId() : null;
+            auditLogService.log(actor, "MEDICAL_RECORD_CREATE", "SUCCESS",
+                    "Created clinical entry for patient ID: " + (patientId != null ? patientId : "N/A"));
+        }
+        return created;
+    }
+
+    public MedicalRecord createRecord(MedicalRecord record) {
+        return createRecord(record, null);
     }
 
     // Endpoint to get all medical records (Staff only)

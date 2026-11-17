@@ -16,6 +16,7 @@ import {
   FaHospital,
   FaUserTie,
   FaNotesMedical,
+  FaHistory,
 } from "react-icons/fa";
 import { useNavigate, Outlet, Link, useLocation } from "react-router-dom";
 
@@ -66,6 +67,9 @@ function Layout() {
               </div>
               <Link to="/admin/approvals" className={linkClass("/admin/approvals")}>
                 <FaUserShield className="text-yellow-400" /> User Approvals
+              </Link>
+              <Link to="/admin/audit-logs" className={linkClass("/admin/audit-logs")}>
+                <FaHistory className="text-indigo-400" /> Audit Logs
               </Link>
               <Link to="/admin/staff" className={linkClass("/admin/staff")}>
                 <FaUserTie className="text-indigo-400" /> Staff & HR
