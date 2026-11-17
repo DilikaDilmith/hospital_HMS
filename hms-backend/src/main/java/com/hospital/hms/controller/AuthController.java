@@ -6,6 +6,7 @@ import com.hospital.hms.entity.Role;
 import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.UserRepository;
 import com.hospital.hms.security.JwtService;
+import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,9 @@ public class AuthController {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private PatientService patientService;
 
     // Endpoint to handle user login requests
     @PostMapping("/login")
@@ -86,19 +90,31 @@ public class AuthController {
             }
 
             user.setPassword(passwordEncoder.encode(user.getPassword()));
-            
+
             if (user.getRole() == null) {
                 user.setRole(Role.PATIENT);
             }
 
+            // PATIENT users are auto-approved; staff require admin approval
             if (user.getRole() == Role.PATIENT) {
                 user.setStatus("APPROVED");
             } else {
                 user.setStatus("PENDING");
             }
 
-            userRepository.save(user);
-            System.out.println("✅ User registered successfully: " + user.getUsername() + " with role: " + user.getRole() + " and status: " + user.getStatus());
+            User savedUser = userRepository.save(user);
+
+            // Automatically create and link a corresponding Patient record for PATIENT role
+            if (savedUser.getRole() == Role.PATIENT) {
+                try {
+                    patientService.createPatientForUser(savedUser);
+                    System.out.println("✅ Automatically created linked Patient record for User: " + savedUser.getUsername());
+                } catch (Exception pe) {
+                    System.err.println("⚠️ Warning: Could not auto-create linked Patient record: " + pe.getMessage());
+                }
+            }
+
+            System.out.println("✅ User registered successfully: " + savedUser.getUsername() + " with role: " + savedUser.getRole() + " and status: " + savedUser.getStatus());
             return ResponseEntity.ok("User registered successfully! Awaiting Admin Approval (if staff).");
         } catch (Exception e) {
             System.err.println("❌ Registration error: " + e.getMessage());

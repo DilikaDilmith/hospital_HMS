@@ -43,16 +43,18 @@ function PharmacistDashboard() {
                     <div>
                         <p className="text-sm opacity-80 uppercase">Process Prescriptions</p>
                         <h3 className="text-2xl font-bold mt-2">Dispense Medicines</h3>
+                        <p className="text-xs text-teal-100 mt-1">Review active prescriptions & dispense with FEFO batch deduction</p>
                     </div>
                     <FaPrescription size={50} className="opacity-50" />
                 </Link>
-                <div className="bg-blue-600 text-white rounded-xl p-6 shadow-lg flex justify-between items-center">
+                <Link to="/pharmacist/batches" className="bg-blue-600 text-white rounded-xl p-6 shadow-lg flex justify-between items-center hover:-translate-y-1 transition-all">
                     <div>
-                        <p className="text-sm opacity-80 uppercase">Inventory Status</p>
-                        <h3 className="text-2xl font-bold mt-2">Check Stock</h3>
+                        <p className="text-sm opacity-80 uppercase">Inventory & Batches</p>
+                        <h3 className="text-2xl font-bold mt-2">Manage Batches</h3>
+                        <p className="text-xs text-blue-100 mt-1">Check stock levels, batch numbers & earliest expiry dates</p>
                     </div>
                     <FaPills size={50} className="opacity-50" />
-                </div>
+                </Link>
             </div>
         </div>
     );

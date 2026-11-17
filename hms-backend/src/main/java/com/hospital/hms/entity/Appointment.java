@@ -22,9 +22,10 @@ public class Appointment {
     @Column(nullable = false)
     private LocalDateTime appointmentDateTime;
 
-    // Current status of the appointment (e.g., BOOKED, CANCELLED, COMPLETED)
-    @Column(nullable = false)
-    private String status;
+    // Current status of the appointment with 7 states: SCHEDULED, CONFIRMED, CHECKED_IN, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private AppointmentStatus status = AppointmentStatus.SCHEDULED;
 
     // Reason for the visit or any specific notes
     private String reason;
@@ -38,4 +39,11 @@ public class Appointment {
     @ManyToOne
     @JoinColumn(name = "doctor_id", referencedColumnName = "id")
     private Doctor doctor;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.status == null) {
+            this.status = AppointmentStatus.SCHEDULED;
+        }
+    }
 }

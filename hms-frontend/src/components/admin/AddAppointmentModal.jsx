@@ -84,7 +84,7 @@ function AddAppointmentModal({ onClose, onAppointmentAdded }) {
         try {
             const payload = {
                 appointmentDateTime: appointmentData.appointmentDateTime,
-                status: 'BOOKED',
+                status: 'SCHEDULED',
                 reason: appointmentData.reason.trim(),
                 patient: { id: parseInt(appointmentData.patientId, 10) },
                 doctor: { id: parseInt(appointmentData.doctorId, 10) }

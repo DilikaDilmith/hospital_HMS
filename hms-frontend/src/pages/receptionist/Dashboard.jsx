@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { FaUserPlus, FaCalendarPlus, FaMoneyBill, FaUserCircle } from 'react-icons/fa';
+import { FaUserPlus, FaCalendarPlus, FaMoneyBill, FaUserCircle, FaBed } from 'react-icons/fa';
 
 function ReceptionistDashboard() {
     const [user, setUser] = useState(null);
@@ -38,7 +38,7 @@ function ReceptionistDashboard() {
                 </Link>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 <Link to="/receptionist/patients" className="bg-blue-600 text-white rounded-xl p-6 shadow-lg flex flex-col justify-between hover:-translate-y-1 transition-all h-40">
                     <div className="flex justify-between items-start">
                         <h3 className="text-xl font-bold">Register Patient</h3>
@@ -57,10 +57,18 @@ function ReceptionistDashboard() {
 
                 <Link to="/receptionist/billing" className="bg-red-500 text-white rounded-xl p-6 shadow-lg flex flex-col justify-between hover:-translate-y-1 transition-all h-40">
                     <div className="flex justify-between items-start">
-                        <h3 className="text-xl font-bold">Generate Bill</h3>
+                        <h3 className="text-xl font-bold">Billing & Invoices</h3>
                         <FaMoneyBill size={30} className="opacity-70" />
                     </div>
-                    <p className="text-sm opacity-90 mt-4">Create invoices and record payments.</p>
+                    <p className="text-sm opacity-90 mt-4">Generate invoices and record payments.</p>
+                </Link>
+
+                <Link to="/receptionist/inpatient" className="bg-purple-600 text-white rounded-xl p-6 shadow-lg flex flex-col justify-between hover:-translate-y-1 transition-all h-40">
+                    <div className="flex justify-between items-start">
+                        <h3 className="text-xl font-bold">Inpatient & Beds</h3>
+                        <FaBed size={30} className="opacity-70" />
+                    </div>
+                    <p className="text-sm opacity-90 mt-4">Admit patients & check bed availability.</p>
                 </Link>
             </div>
         </div>

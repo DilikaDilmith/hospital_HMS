@@ -108,17 +108,38 @@ function Appointments() {
 
     const getStatusBadge = (status) => {
         const s = (status || '').toUpperCase();
-        if (s === 'BOOKED' || s === 'CONFIRMED') {
+        if (s === 'SCHEDULED' || s === 'BOOKED') {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    SCHEDULED
+                </span>
+            );
+        } else if (s === 'CONFIRMED') {
             return (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {status || 'BOOKED'}
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    CONFIRMED
+                </span>
+            );
+        } else if (s === 'CHECKED_IN') {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    CHECKED IN
+                </span>
+            );
+        } else if (s === 'IN_PROGRESS') {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                    IN PROGRESS
                 </span>
             );
         } else if (s === 'COMPLETED') {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
                     COMPLETED
                 </span>
             );
@@ -129,13 +150,45 @@ function Appointments() {
                     CANCELLED
                 </span>
             );
+        } else if (s === 'NO_SHOW') {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                    NO SHOW
+                </span>
+            );
         } else {
             return (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                    {status || 'PENDING'}
+                    {status || 'SCHEDULED'}
                 </span>
             );
+        }
+    };
+
+    const handleCheckIn = async (id) => {
+        const token = localStorage.getItem('token');
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        try {
+            await axios.put(`http://localhost:8080/api/appointments/${id}/check-in`, {}, config);
+            fetchAppointments();
+        } catch (err) {
+            console.error('Error checking in appointment:', err);
+            alert('Failed to check in appointment.');
+        }
+    };
+
+    const handleComplete = async (id) => {
+        const token = localStorage.getItem('token');
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        try {
+            await axios.put(`http://localhost:8080/api/appointments/${id}/complete`, {}, config);
+            alert('Appointment completed! Consultation fee has been automatically added to the patient\'s active Invoice.');
+            fetchAppointments();
+        } catch (err) {
+            console.error('Error completing appointment:', err);
+            alert('Failed to complete appointment.');
         }
     };
 
@@ -283,12 +336,13 @@ function Appointments() {
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Date & Time</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Status</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Reason / Notes</th>
+                                <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="6" className="p-12 text-center text-gray-500">
+                                    <td colSpan="7" className="p-12 text-center text-gray-500">
                                         <FaSpinner className="animate-spin inline mr-2 text-blue-600" size={24} />
                                         Loading appointment records...
                                     </td>
@@ -354,11 +408,38 @@ function Appointments() {
                                                 </span>
                                             </div>
                                         </td>
+                                        <td className="p-4 text-center">
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                {((appt.status || '').toUpperCase() === 'SCHEDULED' || (appt.status || '').toUpperCase() === 'BOOKED' || (appt.status || '').toUpperCase() === 'CONFIRMED') && (
+                                                    <button
+                                                        onClick={() => handleCheckIn(appt.id)}
+                                                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                                                        title="Check In Patient"
+                                                    >
+                                                        Check In
+                                                    </button>
+                                                )}
+                                                {(appt.status || '').toUpperCase() === 'CHECKED_IN' && (
+                                                    <button
+                                                        onClick={() => handleComplete(appt.id)}
+                                                        className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                                                        title="Complete Consultation & Auto-Bill"
+                                                    >
+                                                        Complete & Bill
+                                                    </button>
+                                                )}
+                                                {(appt.status || '').toUpperCase() === 'COMPLETED' && (
+                                                    <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                                                        Billed
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="6" className="p-12 text-center">
+                                    <td colSpan="7" className="p-12 text-center">
                                         <div className="flex flex-col items-center justify-center text-gray-400">
                                             <FaCalendarCheck size={44} className="mb-3 text-gray-300" />
                                             <p className="text-base font-semibold text-gray-700">

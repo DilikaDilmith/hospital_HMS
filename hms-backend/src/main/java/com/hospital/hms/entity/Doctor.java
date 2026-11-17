@@ -28,6 +28,10 @@ public class Doctor {
     @Column(nullable = false)
     private String specialization;
 
+    // Doctor's consultation fee for visits (defaults to 1500.0)
+    @Column(nullable = false)
+    private Double consultationFee = 1500.0;
+
     // Contact number of the doctor
     @Column(nullable = false)
     private String phoneNumber;

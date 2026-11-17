@@ -9,7 +9,7 @@ function BookAppointment() {
         doctorId: '', appointmentDateTime: '', reason: ''
     });
     const [message, setMessage] = useState('');
-    
+
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -35,7 +35,7 @@ function BookAppointment() {
             // Note: For a real app, we need the Patient ID linked to this User.
             // For now, let's just create an appointment with the selected doctor.
             // (We will link the patient ID properly later).
-            
+
             // Since this is a demo, we are fetching the patient list and using the first one, 
             // or you can modify this to match the logged-in user's name.
             const patientRes = await axios.get('http://localhost:8080/api/patients', config);
@@ -50,7 +50,7 @@ function BookAppointment() {
                 appointmentDateTime: appointmentData.appointmentDateTime,
                 status: 'BOOKED',
                 reason: appointmentData.reason,
-                patient: { id: patientId }, 
+                patient: { id: patientId },
                 doctor: { id: appointmentData.doctorId }
             };
 
@@ -67,7 +67,7 @@ function BookAppointment() {
         <div className="max-w-2xl mx-auto">
             <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <FaCalendarCheck className="text-blue-600"/> Book an Appointment
+                    <FaCalendarCheck className="text-blue-600" /> Book an Appointment
                 </h2>
                 <p className="text-gray-500">Select a doctor and a suitable time for your visit.</p>
             </div>
@@ -80,7 +80,7 @@ function BookAppointment() {
 
             <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                    
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Select Doctor</label>
                         <select name="doctorId" onChange={handleChange} required

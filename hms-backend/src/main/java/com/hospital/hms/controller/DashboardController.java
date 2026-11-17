@@ -15,9 +15,16 @@ public class DashboardController {
     @Autowired
     private DashboardService dashboardService;
 
-    // Endpoint to retrieve dashboard statistics (Allow all staff roles)
+    // Retrieve full dashboard metrics and report aggregations
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'PHARMACIST', 'NURSE', 'LAB_STAFF', 'RECEPTIONIST', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN', 'DOCTOR', 'ROLE_DOCTOR', 'PHARMACIST', 'ROLE_PHARMACIST', 'NURSE', 'ROLE_NURSE', 'LAB_STAFF', 'ROLE_LAB_STAFF', 'RECEPTIONIST', 'ROLE_RECEPTIONIST', 'ACCOUNTANT', 'ROLE_ACCOUNTANT')")
+    public DashboardResponse getDashboardMetrics() {
+        return dashboardService.getDashboardStats();
+    }
+
+    // Direct /stats alias endpoint
+    @GetMapping("/stats")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN', 'DOCTOR', 'ROLE_DOCTOR', 'PHARMACIST', 'ROLE_PHARMACIST', 'NURSE', 'ROLE_NURSE', 'LAB_STAFF', 'ROLE_LAB_STAFF', 'RECEPTIONIST', 'ROLE_RECEPTIONIST', 'ACCOUNTANT', 'ROLE_ACCOUNTANT')")
     public DashboardResponse getDashboardStats() {
         return dashboardService.getDashboardStats();
     }

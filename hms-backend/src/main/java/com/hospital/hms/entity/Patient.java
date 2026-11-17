@@ -1,5 +1,6 @@
 package com.hospital.hms.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,7 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Entity
 @Table(name = "patients")
@@ -19,6 +19,11 @@ public class Patient {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // Linked User account for Patient Portal access (One-to-One relationship)
+    @OneToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
+    private User user;
 
     // Patient's first name
     @Column(nullable = false)
@@ -33,16 +38,13 @@ public class Patient {
     private String nic;
 
     // Patient's date of birth
-    @Column(nullable = false)
-    @JsonFormat(pattern="yyyy-MM-dd")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate dateOfBirth;
 
     // Patient's gender (e.g., Male, Female, Other)
-    @Column(nullable = false)
     private String gender;
 
     // Primary contact number
-    @Column(nullable = false)
     private String phoneNumber;
 
     // Residential address

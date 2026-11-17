@@ -11,11 +11,17 @@ import {
   FaUserShield,
   FaPrescription,
   FaCalendarPlus,
+  FaBoxes,
+  FaBed,
+  FaHospital,
+  FaUserTie,
+  FaNotesMedical,
 } from "react-icons/fa";
-import { useNavigate, Outlet, Link } from "react-router-dom";
+import { useNavigate, Outlet, Link, useLocation } from "react-router-dom";
 
 function Layout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const role = localStorage.getItem("role"); // Get logged in user role
 
   const handleLogout = () => {
@@ -24,67 +30,69 @@ function Layout() {
     navigate("/");
   };
 
+  const isActive = (path) => location.pathname === path;
+
+  const linkClass = (path) =>
+    `flex items-center gap-3 p-3 rounded-xl transition text-sm font-medium ${
+      isActive(path)
+        ? "bg-blue-600 text-white shadow-md font-semibold"
+        : "text-gray-300 hover:bg-gray-800 hover:text-white"
+    }`;
+
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 font-sans">
       {/* Sidebar */}
-      <div className="w-64 bg-gray-900 text-white flex flex-col">
-        <div className="p-5 text-2xl font-bold text-center border-b border-gray-700 text-blue-400">
-          HMS - {role}
+      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-2xl z-20">
+        <div className="p-5 border-b border-gray-800 text-center">
+          <div className="text-xl font-black tracking-wider text-blue-400">
+            HOSPITAL MS
+          </div>
+          <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-900/60 text-blue-300 border border-blue-700/50">
+            {role || "USER"}
+          </span>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {/* Common Routes for All (This links to the DashboardRouter) */}
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-          >
-            <FaTachometerAlt /> Dashboard
+        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+          {/* Common Dashboard */}
+          <Link to="/dashboard" className={linkClass("/dashboard")}>
+            <FaTachometerAlt className="text-blue-400" /> Dashboard
           </Link>
 
           {/* ADMIN ONLY ROUTES */}
           {role === "ADMIN" && (
             <>
-              <Link
-                to="/admin/approvals"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition text-yellow-400"
-              >
-                <FaUserShield /> Approvals
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Hospital Administration
+              </div>
+              <Link to="/admin/approvals" className={linkClass("/admin/approvals")}>
+                <FaUserShield className="text-yellow-400" /> User Approvals
               </Link>
-              <Link
-                to="/admin/patients"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaUserInjured /> Patients
+              <Link to="/admin/staff" className={linkClass("/admin/staff")}>
+                <FaUserTie className="text-indigo-400" /> Staff & HR
               </Link>
-              <Link
-                to="/admin/doctors"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaUserMd /> Doctors
+              <Link to="/admin/patients" className={linkClass("/admin/patients")}>
+                <FaUserInjured className="text-cyan-400" /> Patients
               </Link>
-              <Link
-                to="/admin/departments"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaBuilding /> Departments
+              <Link to="/admin/doctors" className={linkClass("/admin/doctors")}>
+                <FaUserMd className="text-emerald-400" /> Doctors
               </Link>
-              <Link
-                to="/admin/appointments"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaCalendarCheck /> Appointments
+              <Link to="/admin/departments" className={linkClass("/admin/departments")}>
+                <FaBuilding className="text-purple-400" /> Departments
               </Link>
-              <Link
-                to="/admin/pharmacy"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaPills /> Pharmacy
+              <Link to="/admin/appointments" className={linkClass("/admin/appointments")}>
+                <FaCalendarCheck className="text-orange-400" /> Appointments
               </Link>
-              <Link
-                to="/admin/billing"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaMoneyBill /> Billing
+              <Link to="/admin/inpatient" className={linkClass("/admin/inpatient")}>
+                <FaBed className="text-pink-400" /> Inpatient & Beds
+              </Link>
+              <Link to="/admin/pharmacy" className={linkClass("/admin/pharmacy")}>
+                <FaPills className="text-teal-400" /> Pharmacy
+              </Link>
+              <Link to="/admin/batches" className={linkClass("/admin/batches")}>
+                <FaBoxes className="text-amber-400" /> Medicine Batches
+              </Link>
+              <Link to="/admin/billing" className={linkClass("/admin/billing")}>
+                <FaMoneyBill className="text-emerald-400" /> Itemized Billing
               </Link>
             </>
           )}
@@ -92,17 +100,14 @@ function Layout() {
           {/* DOCTOR ONLY ROUTES */}
           {role === "DOCTOR" && (
             <>
-              <Link
-                to="/doctor/appointments"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaCalendarCheck /> My Appointments
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Clinical Duties
+              </div>
+              <Link to="/doctor/appointments" className={linkClass("/doctor/appointments")}>
+                <FaCalendarCheck className="text-emerald-400" /> My Appointments
               </Link>
-              <Link
-                to="/doctor/lab-requests"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaFlask /> Lab Requests
+              <Link to="/doctor/lab-requests" className={linkClass("/doctor/lab-requests")}>
+                <FaFlask className="text-amber-400" /> Lab Requests
               </Link>
             </>
           )}
@@ -110,11 +115,14 @@ function Layout() {
           {/* PHARMACIST ONLY ROUTES */}
           {role === "PHARMACIST" && (
             <>
-              <Link
-                to="/pharmacist/prescriptions"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaPrescription /> Prescriptions
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Dispensary
+              </div>
+              <Link to="/pharmacist/prescriptions" className={linkClass("/pharmacist/prescriptions")}>
+                <FaPrescription className="text-teal-400" /> Prescriptions
+              </Link>
+              <Link to="/pharmacist/batches" className={linkClass("/pharmacist/batches")}>
+                <FaBoxes className="text-amber-400" /> Medicine Batches
               </Link>
             </>
           )}
@@ -122,11 +130,11 @@ function Layout() {
           {/* LAB STAFF ONLY ROUTES */}
           {role === "LAB_STAFF" && (
             <>
-              <Link
-                to="/lab/tests"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaFlask /> Lab Tests
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Diagnostics
+              </div>
+              <Link to="/lab/tests" className={linkClass("/lab/tests")}>
+                <FaFlask className="text-purple-400" /> Lab Tests & Results
               </Link>
             </>
           )}
@@ -134,23 +142,35 @@ function Layout() {
           {/* RECEPTIONIST ROUTES */}
           {role === "RECEPTIONIST" && (
             <>
-              <Link
-                to="/receptionist/patients"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaUserInjured /> Patients
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Front Desk
+              </div>
+              <Link to="/receptionist/patients" className={linkClass("/receptionist/patients")}>
+                <FaUserInjured className="text-cyan-400" /> Patients
               </Link>
-              <Link
-                to="/receptionist/appointments"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaCalendarCheck /> Appointments
+              <Link to="/receptionist/appointments" className={linkClass("/receptionist/appointments")}>
+                <FaCalendarCheck className="text-orange-400" /> Appointments
               </Link>
-              <Link
-                to="/receptionist/billing"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaMoneyBill /> Billing
+              <Link to="/receptionist/inpatient" className={linkClass("/receptionist/inpatient")}>
+                <FaBed className="text-pink-400" /> Inpatient & Beds
+              </Link>
+              <Link to="/receptionist/billing" className={linkClass("/receptionist/billing")}>
+                <FaMoneyBill className="text-emerald-400" /> Itemized Billing
+              </Link>
+            </>
+          )}
+
+          {/* NURSE ONLY ROUTES */}
+          {role === "NURSE" && (
+            <>
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Nursing Station
+              </div>
+              <Link to="/nurse/dashboard" className={linkClass("/nurse/dashboard")}>
+                <FaBed className="text-blue-400" /> Nurse Station
+              </Link>
+              <Link to="/nurse/inpatient" className={linkClass("/nurse/inpatient")}>
+                <FaHospital className="text-pink-400" /> Inpatient Ward Roster
               </Link>
             </>
           )}
@@ -158,11 +178,17 @@ function Layout() {
           {/* PATIENT ROUTES */}
           {role === "PATIENT" && (
             <>
-              <Link
-                to="/patient/book-appointment"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition"
-              >
-                <FaCalendarPlus /> Book Appointment
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Patient Services
+              </div>
+              <Link to="/patient/book-appointment" className={linkClass("/patient/book-appointment")}>
+                <FaCalendarPlus className="text-cyan-400" /> Book Appointment
+              </Link>
+              <Link to="/patient/medical-records" className={linkClass("/patient/medical-records")}>
+                <FaNotesMedical className="text-emerald-400" /> Medical Records
+              </Link>
+              <Link to="/patient/lab-results" className={linkClass("/patient/lab-results")}>
+                <FaFlask className="text-purple-400" /> Lab Results
               </Link>
             </>
           )}
@@ -171,19 +197,27 @@ function Layout() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white shadow-sm p-4 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-800">
-            Hospital Management System
-          </h2>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm"
-          >
-            <FaSignOutAlt /> Logout
-          </button>
+        <header className="bg-white shadow-sm border-b px-6 py-3.5 flex justify-between items-center z-10">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-extrabold text-gray-800">
+              Hospital Management System
+            </h2>
+            <span className="text-xs font-semibold text-gray-400 hidden sm:inline">
+              | Enterprise Healthcare Portal
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white px-3.5 py-1.5 rounded-xl transition text-xs font-bold border border-rose-200 hover:border-transparent"
+            >
+              <FaSignOutAlt /> Logout
+            </button>
+          </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto bg-slate-50/60">
           <Outlet />
         </main>
       </div>

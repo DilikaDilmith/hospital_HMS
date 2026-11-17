@@ -4,6 +4,7 @@ import com.hospital.hms.entity.MedicalRecord;
 import com.hospital.hms.repository.MedicalRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,13 +15,17 @@ public class MedicalRecordService {
     @Autowired
     private MedicalRecordRepository medicalRecordRepository;
 
+    @Autowired
+    private MedicineService medicineService;
+
+    @Autowired
+    private InvoiceService invoiceService;
+
     // Create a new medical record
     public MedicalRecord createRecord(MedicalRecord record) {
-        // Set the record date to current time if not provided
         if (record.getRecordDate() == null) {
             record.setRecordDate(LocalDateTime.now());
         }
-        // Set default status to PENDING when a doctor creates it
         record.setStatus("PENDING"); 
         return medicalRecordRepository.save(record);
     }
@@ -30,11 +35,32 @@ public class MedicalRecordService {
         return medicalRecordRepository.findAll();
     }
 
-    // Update the status of a medical record to DISPENSED
-    public MedicalRecord dispenseRecord(Long id) {
+    // Update status to DISPENSED, deduct from earliest expiring batch (FEFO), and auto-bill
+    @Transactional
+    public MedicalRecord dispenseRecord(Long id, Long medicineId, Integer quantity) {
         MedicalRecord record = medicalRecordRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Record not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException("Record not found with id: " + id));
+
         record.setStatus("DISPENSED");
-        return medicalRecordRepository.save(record);
+        MedicalRecord saved = medicalRecordRepository.save(record);
+
+        // Deduct from batch and auto-bill if medicine was selected
+        if (medicineId != null && quantity != null && quantity > 0) {
+            try {
+                medicineService.dispenseMedicine(medicineId, quantity, record.getPatient());
+            } catch (Exception e) {
+                System.err.println("⚠️ Warning during batch deduction: " + e.getMessage());
+            }
+        } else if (record.getPatient() != null) {
+            // General prescription dispensing charge
+            try {
+                String medName = (record.getPrescription() != null && !record.getPrescription().trim().isEmpty())
+                        ? record.getPrescription().trim()
+                        : "Prescribed Medication";
+                invoiceService.addPharmacyFee(record.getPatient(), medName, 1, 1200.0);
+            } catch (Exception ignored) {}
+        }
+
+        return saved;
     }
 }

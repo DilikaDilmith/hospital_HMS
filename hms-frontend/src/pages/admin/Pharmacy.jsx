@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaPills, FaPlus, FaExclamationTriangle } from 'react-icons/fa';
+import { FaPills, FaPlus, FaExclamationTriangle, FaBoxes } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 import AddMedicineModal from '../../components/admin/AddMedicineModal';
 
 function Pharmacy() {
@@ -35,12 +36,20 @@ function Pharmacy() {
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <FaPills className="text-teal-600"/> Pharmacy Inventory
                 </h2>
-                <button 
-                    onClick={() => setShowModal(true)}
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
-                >
-                    <FaPlus /> Add Medicine
-                </button>
+                <div className="flex items-center gap-2.5">
+                    <Link
+                        to="/pharmacist/batches"
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition"
+                    >
+                        <FaBoxes className="text-teal-600" /> Manage Batches (FEFO)
+                    </Link>
+                    <button 
+                        onClick={() => setShowModal(true)}
+                        className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition"
+                    >
+                        <FaPlus /> Add Medicine
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
