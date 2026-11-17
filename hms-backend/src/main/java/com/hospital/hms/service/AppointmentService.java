@@ -12,7 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +52,45 @@ public class AppointmentService {
         }
     }
 
+    // Validate that the requested appointment date and time falls within the doctor's available working days and hours
+    public void validateDoctorAvailability(Doctor doctor, LocalDateTime appointmentDateTime) {
+        if (doctor == null || appointmentDateTime == null) {
+            return;
+        }
+
+        // 1. Check Working Days
+        String availableDays = doctor.getAvailableDays();
+        if (availableDays != null && !availableDays.trim().isEmpty()) {
+            DayOfWeek apptDay = appointmentDateTime.getDayOfWeek();
+            String dayName = apptDay.name(); // e.g. "MONDAY"
+
+            boolean dayMatches = Arrays.stream(availableDays.split(","))
+                    .map(String::trim)
+                    .anyMatch(d -> d.equalsIgnoreCase(dayName) || d.equalsIgnoreCase(dayName.substring(0, Math.min(3, dayName.length()))));
+
+            if (!dayMatches) {
+                throw new AppointmentConflictException(
+                        "Dr. " + doctor.getFirstName() + " " + doctor.getLastName() + 
+                        " is not available on " + dayName + "s. Available working days: " + availableDays);
+            }
+        }
+
+        // 2. Check Available Time Range
+        LocalTime apptTime = appointmentDateTime.toLocalTime();
+        LocalTime start = doctor.getAvailableTimeStart();
+        LocalTime end = doctor.getAvailableTimeEnd();
+
+        if (start != null && end != null) {
+            if (apptTime.isBefore(start) || apptTime.isAfter(end)) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+                throw new AppointmentConflictException(
+                        "Selected appointment time (" + apptTime.format(formatter) + 
+                        ") is outside Dr. " + doctor.getFirstName() + " " + doctor.getLastName() + 
+                        "'s available hours (" + start.format(formatter) + " - " + end.format(formatter) + ").");
+            }
+        }
+    }
+
     // Save a new appointment (Staff booking): defaulted to SCHEDULED and validated
     @Transactional
     public Appointment bookAppointment(Appointment appointment) {
@@ -73,6 +116,9 @@ public class AppointmentService {
                     .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + appointment.getPatient().getId()));
             appointment.setPatient(patient);
         }
+
+        // Validate doctor working days and hours
+        validateDoctorAvailability(doctor, appointment.getAppointmentDateTime());
 
         // Prevent double booking for the same doctor at the same date and time (excluding CANCELLED)
         validateNoDoctorConflict(doctor.getId(), appointment.getAppointmentDateTime(), appointment.getId());
@@ -102,6 +148,9 @@ public class AppointmentService {
         appointment.setPatient(patient);
         appointment.setDoctor(doctor);
         appointment.setStatus(AppointmentStatus.SCHEDULED); // Enforce server-side default
+
+        // Validate doctor working days and hours
+        validateDoctorAvailability(doctor, appointment.getAppointmentDateTime());
 
         // Prevent double booking for the same doctor at the same date and time (excluding CANCELLED)
         validateNoDoctorConflict(doctor.getId(), appointment.getAppointmentDateTime(), appointment.getId());
@@ -234,6 +283,9 @@ public class AppointmentService {
         if (appointment.getDoctor() == null || appointment.getDoctor().getId() == null) {
             throw new IllegalStateException("Cannot reschedule appointment without an assigned doctor.");
         }
+
+        // Validate doctor working days and hours
+        validateDoctorAvailability(appointment.getDoctor(), newDateTime);
 
         // Prevent double booking for the same doctor at the new time slot (excluding this appointment and cancelled)
         validateNoDoctorConflict(appointment.getDoctor().getId(), newDateTime, appointmentId);

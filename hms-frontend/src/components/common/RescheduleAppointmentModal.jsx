@@ -16,6 +16,24 @@ function RescheduleAppointmentModal({ appointment, onClose, onRescheduled }) {
         .toISOString()
         .slice(0, 16);
 
+    const formatDays = (daysStr) => {
+        if (!daysStr) return 'Mon-Fri';
+        const dayMap = {
+            'MONDAY': 'Mon', 'TUESDAY': 'Tue', 'WEDNESDAY': 'Wed', 'THURSDAY': 'Thu',
+            'FRIDAY': 'Fri', 'SATURDAY': 'Sat', 'SUNDAY': 'Sun'
+        };
+        const parts = daysStr.split(',').map(d => d.trim().toUpperCase());
+        if (parts.length === 7) return 'All Days';
+        if (parts.length === 5 && !parts.includes('SATURDAY') && !parts.includes('SUNDAY')) return 'Mon - Fri';
+        return parts.map(p => dayMap[p] || p).join(', ');
+    };
+
+    const formatHours = (start, end) => {
+        const s = start ? start.substring(0, 5) : '08:00';
+        const e = end ? end.substring(0, 5) : '17:00';
+        return `${s} - ${e}`;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!newDateTime) {
@@ -87,12 +105,22 @@ function RescheduleAppointmentModal({ appointment, onClose, onRescheduled }) {
                             <span className="font-bold text-gray-800">#{appointment.id}</span>
                         </div>
                         {appointment.doctor && (
-                            <div className="flex items-center justify-between">
-                                <span className="font-medium text-gray-500">Doctor:</span>
-                                <span className="font-semibold text-blue-700 flex items-center gap-1">
-                                    <FaUserMd size={12} /> Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}
-                                </span>
-                            </div>
+                            <>
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium text-gray-500">Doctor:</span>
+                                    <span className="font-semibold text-blue-700 flex items-center gap-1">
+                                        <FaUserMd size={12} /> Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}
+                                    </span>
+                                </div>
+                                {appointment.doctor.availableDays && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-500">Available:</span>
+                                        <span className="text-gray-700 font-medium">
+                                            {formatDays(appointment.doctor.availableDays)} ({formatHours(appointment.doctor.availableTimeStart, appointment.doctor.availableTimeEnd)})
+                                        </span>
+                                    </div>
+                                )}
+                            </>
                         )}
                         <div className="flex items-center justify-between">
                             <span className="font-medium text-gray-500">Current Slot:</span>

@@ -58,6 +58,26 @@ function BookAppointment() {
         }
     };
 
+    const selectedDoctor = doctors.find(d => d.id === parseInt(appointmentData.doctorId, 10));
+
+    const formatDays = (daysStr) => {
+        if (!daysStr) return 'Mon-Fri';
+        const dayMap = {
+            'MONDAY': 'Mon', 'TUESDAY': 'Tue', 'WEDNESDAY': 'Wed', 'THURSDAY': 'Thu',
+            'FRIDAY': 'Fri', 'SATURDAY': 'Sat', 'SUNDAY': 'Sun'
+        };
+        const parts = daysStr.split(',').map(d => d.trim().toUpperCase());
+        if (parts.length === 7) return 'All Days (Mon-Sun)';
+        if (parts.length === 5 && !parts.includes('SATURDAY') && !parts.includes('SUNDAY')) return 'Mon - Fri';
+        return parts.map(p => dayMap[p] || p).join(', ');
+    };
+
+    const formatHours = (start, end) => {
+        const s = start ? start.substring(0, 5) : '08:00';
+        const e = end ? end.substring(0, 5) : '17:00';
+        return `${s} - ${e}`;
+    };
+
     return (
         <div className="max-w-2xl mx-auto">
             <div className="mb-6">
@@ -94,6 +114,22 @@ function BookAppointment() {
                                 </option>
                             ))}
                         </select>
+                        {selectedDoctor && (
+                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1">
+                                <div className="font-semibold flex justify-between">
+                                    <span>Dr. {selectedDoctor.firstName} {selectedDoctor.lastName} ({selectedDoctor.specialization})</span>
+                                    <span className="text-emerald-700 font-bold">Fee: LKR {selectedDoctor.consultationFee ? selectedDoctor.consultationFee.toFixed(2) : '1,500.00'}</span>
+                                </div>
+                                <div className="text-gray-600">
+                                    <span className="font-medium text-gray-700">Available Days: </span>
+                                    {formatDays(selectedDoctor.availableDays)}
+                                </div>
+                                <div className="text-gray-600">
+                                    <span className="font-medium text-gray-700">Working Hours: </span>
+                                    {formatHours(selectedDoctor.availableTimeStart, selectedDoctor.availableTimeEnd)}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div>

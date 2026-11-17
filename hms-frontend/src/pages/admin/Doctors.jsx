@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaUserMd, FaPlus } from 'react-icons/fa';
+import { FaUserMd, FaPlus, FaEdit, FaClock, FaCalendarAlt } from 'react-icons/fa';
 import AddDoctorModal from '../../components/admin/AddDoctorModal';
+import EditDoctorModal from '../../components/admin/EditDoctorModal';
 
 function Doctors() {
     const [doctors, setDoctors] = useState([]);
-    const [showModal, setShowModal] = useState(false);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [selectedDoctorForEdit, setSelectedDoctorForEdit] = useState(null);
+    const [statusBanner, setStatusBanner] = useState({ type: '', message: '' });
 
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -16,6 +19,10 @@ function Doctors() {
             setDoctors(response.data);
         } catch (error) {
             console.error("Error fetching doctors:", error);
+            setStatusBanner({
+                type: 'error',
+                message: 'Failed to fetch doctor list. Please verify network connection.'
+            });
         }
     };
 
@@ -23,45 +30,119 @@ function Doctors() {
         fetchDoctors();
     }, []);
 
+    const formatDays = (daysStr) => {
+        if (!daysStr) return 'Mon-Fri';
+        const dayMap = {
+            'MONDAY': 'Mon', 'TUESDAY': 'Tue', 'WEDNESDAY': 'Wed', 'THURSDAY': 'Thu',
+            'FRIDAY': 'Fri', 'SATURDAY': 'Sat', 'SUNDAY': 'Sun'
+        };
+        const parts = daysStr.split(',').map(d => d.trim().toUpperCase());
+        if (parts.length === 7) return 'All Days';
+        if (parts.length === 5 && !parts.includes('SATURDAY') && !parts.includes('SUNDAY')) return 'Mon - Fri';
+        return parts.map(p => dayMap[p] || p).join(', ');
+    };
+
+    const formatHours = (start, end) => {
+        const s = start ? start.substring(0, 5) : '08:00';
+        const e = end ? end.substring(0, 5) : '17:00';
+        return `${s} - ${e}`;
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <FaUserMd className="text-blue-600"/> Doctor Management
-                </h2>
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <FaUserMd className="text-blue-600"/> Doctor Management
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Manage doctor profiles, departments, consultation fees, and working hours.
+                    </p>
+                </div>
                 <button 
-                    onClick={() => setShowModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
+                    onClick={() => setShowAddModal(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition shadow-sm"
                 >
                     <FaPlus /> Add Doctor
                 </button>
             </div>
 
+            {statusBanner.message && (
+                <div className={`p-4 rounded-xl mb-6 text-sm flex items-center justify-between ${
+                    statusBanner.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'
+                }`}>
+                    <span>{statusBanner.message}</span>
+                    <button 
+                        onClick={() => setStatusBanner({ type: '', message: '' })}
+                        className="font-bold ml-2 hover:opacity-80"
+                    >
+                        &times;
+                    </button>
+                </div>
+            )}
+
             <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse text-sm">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
                             <th className="p-4 font-semibold text-gray-600">ID</th>
-                            <th className="p-4 font-semibold text-gray-600">Name</th>
+                            <th className="p-4 font-semibold text-gray-600">Doctor Name</th>
                             <th className="p-4 font-semibold text-gray-600">Specialization</th>
-                            <th className="p-4 font-semibold text-gray-600">Phone</th>
                             <th className="p-4 font-semibold text-gray-600">Department</th>
+                            <th className="p-4 font-semibold text-gray-600">Contact</th>
+                            <th className="p-4 font-semibold text-gray-600">Fee (LKR)</th>
+                            <th className="p-4 font-semibold text-gray-600">Availability</th>
+                            <th className="p-4 font-semibold text-gray-600 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {doctors.length > 0 ? (
                             doctors.map((doc) => (
                                 <tr key={doc.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                                    <td className="p-4 text-gray-700">#{doc.id}</td>
-                                    <td className="p-4 text-gray-800 font-medium">Dr. {doc.firstName} {doc.lastName}</td>
-                                    <td className="p-4 text-gray-600">{doc.specialization}</td>
-                                    <td className="p-4 text-gray-600">{doc.phoneNumber}</td>
-                                    <td className="p-4 text-gray-600">{doc.department ? doc.department.name : 'N/A'}</td>
+                                    <td className="p-4 text-gray-500 font-mono text-xs">#{doc.id}</td>
+                                    <td className="p-4 text-gray-800 font-medium">
+                                        Dr. {doc.firstName} {doc.lastName}
+                                    </td>
+                                    <td className="p-4 text-gray-600">
+                                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
+                                            {doc.specialization}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-gray-600">
+                                        {doc.department ? doc.department.name : <span className="text-gray-400 italic">None</span>}
+                                    </td>
+                                    <td className="p-4 text-gray-600 text-xs">
+                                        <div>{doc.phoneNumber}</div>
+                                        {doc.email && <div className="text-gray-400">{doc.email}</div>}
+                                    </td>
+                                    <td className="p-4 text-gray-800 font-medium text-xs">
+                                        LKR {doc.consultationFee ? doc.consultationFee.toFixed(2) : '1,500.00'}
+                                    </td>
+                                    <td className="p-4 text-gray-600 text-xs">
+                                        <div className="flex items-center gap-1 font-medium text-gray-700">
+                                            <FaCalendarAlt className="text-indigo-500" size={11} />
+                                            <span>{formatDays(doc.availableDays)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-gray-500 mt-0.5">
+                                            <FaClock className="text-gray-400" size={11} />
+                                            <span>{formatHours(doc.availableTimeStart, doc.availableTimeEnd)}</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4 text-right">
+                                        <button
+                                            onClick={() => setSelectedDoctorForEdit(doc)}
+                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition"
+                                            title="Edit Doctor Details & Availability"
+                                        >
+                                            <FaEdit size={12} />
+                                            <span>Edit</span>
+                                        </button>
+                                    </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="5" className="p-8 text-center text-gray-500">
+                                <td colSpan="8" className="p-8 text-center text-gray-500">
                                     No doctors found. Click "Add Doctor" to create one.
                                 </td>
                             </tr>
@@ -70,10 +151,29 @@ function Doctors() {
                 </table>
             </div>
 
-            {showModal && (
+            {/* Add Doctor Modal */}
+            {showAddModal && (
                 <AddDoctorModal 
-                    onClose={() => setShowModal(false)} 
-                    onDoctorAdded={fetchDoctors} 
+                    onClose={() => setShowAddModal(false)} 
+                    onDoctorAdded={() => {
+                        fetchDoctors();
+                        setStatusBanner({ type: 'success', message: 'Doctor registered successfully!' });
+                    }} 
+                />
+            )}
+
+            {/* Edit Doctor Modal */}
+            {selectedDoctorForEdit && (
+                <EditDoctorModal
+                    doctor={selectedDoctorForEdit}
+                    onClose={() => setSelectedDoctorForEdit(null)}
+                    onDoctorUpdated={(updatedDoc) => {
+                        fetchDoctors();
+                        setStatusBanner({ 
+                            type: 'success', 
+                            message: `Dr. ${updatedDoc.firstName} ${updatedDoc.lastName}'s profile & availability updated successfully!` 
+                        });
+                    }}
                 />
             )}
         </div>
