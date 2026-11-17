@@ -13,10 +13,12 @@ import {
     FaSpinner 
 } from 'react-icons/fa';
 import AddAppointmentModal from '../../components/admin/AddAppointmentModal';
+import RescheduleAppointmentModal from '../../components/common/RescheduleAppointmentModal';
 
 function Appointments() {
     const [appointments, setAppointments] = useState([]);
     const [showModal, setShowModal] = useState(false);
+    const [reschedulingAppt, setReschedulingAppt] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -438,6 +440,13 @@ function Appointments() {
                                                             Check In
                                                         </button>
                                                         <button
+                                                            onClick={() => setReschedulingAppt(appt)}
+                                                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                                                            title="Reschedule Appointment"
+                                                        >
+                                                            Reschedule
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleCancel(appt.id)}
                                                             className="px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
                                                             title="Cancel Appointment"
@@ -488,11 +497,22 @@ function Appointments() {
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Modals */}
             {showModal && (
                 <AddAppointmentModal 
                     onClose={() => setShowModal(false)} 
                     onAppointmentAdded={fetchAppointments} 
+                />
+            )}
+
+            {reschedulingAppt && (
+                <RescheduleAppointmentModal 
+                    appointment={reschedulingAppt}
+                    onClose={() => setReschedulingAppt(null)} 
+                    onRescheduled={(updated) => {
+                        alert(`Appointment #${updated.id} successfully rescheduled to ${new Date(updated.appointmentDateTime).toLocaleString()}!`);
+                        fetchAppointments();
+                    }} 
                 />
             )}
         </div>

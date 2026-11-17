@@ -208,6 +208,42 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
 
+    // Reschedule an appointment: allow scheduled or confirmed appointments to be updated to a new future time slot
+    @Transactional
+    public Appointment rescheduleAppointment(Long appointmentId, LocalDateTime newDateTime) {
+        if (newDateTime == null) {
+            throw new IllegalArgumentException("New appointment date and time is required.");
+        }
+        if (newDateTime.isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Rescheduled appointment date and time must be in the future.");
+        }
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
+
+        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot reschedule appointment #" + appointmentId + " because it is already completed.");
+        }
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot reschedule appointment #" + appointmentId + " because it has been cancelled.");
+        }
+        if (appointment.getStatus() != AppointmentStatus.SCHEDULED && appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException("Cannot reschedule appointment #" + appointmentId + " with status: " + appointment.getStatus());
+        }
+
+        if (appointment.getDoctor() == null || appointment.getDoctor().getId() == null) {
+            throw new IllegalStateException("Cannot reschedule appointment without an assigned doctor.");
+        }
+
+        // Prevent double booking for the same doctor at the new time slot (excluding this appointment and cancelled)
+        validateNoDoctorConflict(appointment.getDoctor().getId(), newDateTime, appointmentId);
+
+        appointment.setAppointmentDateTime(newDateTime);
+        appointment.setStatus(AppointmentStatus.SCHEDULED);
+
+        return appointmentRepository.save(appointment);
+    }
+
     // Update appointment status to any of the 7 states
     @Transactional
     public Appointment updateAppointmentStatus(Long id, AppointmentStatus status) {

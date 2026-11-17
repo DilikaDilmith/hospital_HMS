@@ -160,6 +160,51 @@ public class AppointmentController {
         }
     }
 
+    // Dedicated endpoint to reschedule an appointment (Patients can only reschedule their own)
+    @PutMapping("/{id}/reschedule")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_PATIENT')")
+    public ResponseEntity<?> rescheduleAppointment(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+        try {
+            if (isCallerPatientOnly(authentication)) {
+                Appointment appt = appointmentService.getAppointmentById(id).orElse(null);
+                if (appt == null) {
+                    return ResponseEntity.notFound().build();
+                }
+                if (appt.getPatient() == null || appt.getPatient().getUser() == null
+                        || !appt.getPatient().getUser().getUsername().equals(authentication.getName())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("Access denied: You can only reschedule your own appointments.");
+                }
+            }
+
+            String dateTimeStr = payload != null ? payload.get("appointmentDateTime") : null;
+            if (dateTimeStr == null || dateTimeStr.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("New appointment date and time is required.");
+            }
+
+            LocalDateTime newDateTime;
+            try {
+                newDateTime = LocalDateTime.parse(dateTimeStr.trim());
+            } catch (Exception parseEx) {
+                return ResponseEntity.badRequest().body("Invalid date format. Expected ISO-8601 format (e.g. 2026-11-20T10:30:00).");
+            }
+
+            Appointment rescheduled = appointmentService.rescheduleAppointment(id, newDateTime);
+            return ResponseEntity.ok(rescheduled);
+        } catch (AppointmentConflictException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to reschedule appointment: " + e.getMessage());
+        }
+    }
+
     // General status update endpoint (SCHEDULED, CONFIRMED, CHECKED_IN, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW)
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_NURSE')")

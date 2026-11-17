@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { FaCalendarPlus, FaNotesMedical, FaFlask, FaUserCircle, FaCalendarCheck, FaTimesCircle } from 'react-icons/fa';
+import RescheduleAppointmentModal from '../../components/common/RescheduleAppointmentModal';
 
 function PatientDashboard() {
     const [user, setUser] = useState(null);
@@ -9,6 +10,7 @@ function PatientDashboard() {
     const [loadingAppointments, setLoadingAppointments] = useState(true);
     const [cancelMsg, setCancelMsg] = useState('');
     const [cancelError, setCancelError] = useState('');
+    const [selectedApptToReschedule, setSelectedApptToReschedule] = useState(null);
 
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -202,13 +204,22 @@ function PatientDashboard() {
                                             </td>
                                             <td className="p-3 text-center">
                                                 {canCancel ? (
-                                                    <button
-                                                        onClick={() => handleCancelAppointment(appt.id)}
-                                                        className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition"
-                                                        title="Cancel this appointment"
-                                                    >
-                                                        Cancel
-                                                    </button>
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button
+                                                            onClick={() => setSelectedApptToReschedule(appt)}
+                                                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition"
+                                                            title="Reschedule this appointment"
+                                                        >
+                                                            Reschedule
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleCancelAppointment(appt.id)}
+                                                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition"
+                                                            title="Cancel this appointment"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
                                                 ) : (
                                                     <span className="text-xs text-gray-400">—</span>
                                                 )}
@@ -221,6 +232,18 @@ function PatientDashboard() {
                     </div>
                 )}
             </div>
+
+            {/* Reschedule Modal */}
+            {selectedApptToReschedule && (
+                <RescheduleAppointmentModal
+                    appointment={selectedApptToReschedule}
+                    onClose={() => setSelectedApptToReschedule(null)}
+                    onRescheduled={(updated) => {
+                        setCancelMsg(`Appointment #${updated.id} successfully rescheduled to ${new Date(updated.appointmentDateTime).toLocaleString()}!`);
+                        fetchAppointments();
+                    }}
+                />
+            )}
         </div>
     );
 }
