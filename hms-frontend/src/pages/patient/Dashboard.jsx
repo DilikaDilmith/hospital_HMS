@@ -90,10 +90,10 @@ function PatientDashboard() {
                         </p>
                     </div>
                 </div>
-                
+
                 {/* Button to go to Profile Page */}
-                <Link 
-                    to="/profile" 
+                <Link
+                    to="/profile"
                     className="bg-white text-blue-600 px-5 py-2 rounded-lg font-bold hover:bg-gray-100 transition shadow-md"
                 >
                     View Full Profile
@@ -113,11 +113,11 @@ function PatientDashboard() {
                     <button onClick={() => setCancelError('')} className="font-bold text-rose-700 hover:text-rose-900">&times;</button>
                 </div>
             )}
-            
+
             {/* 2. Quick Action Cards */}
             <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Quick Actions</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-                
+
                 {/* Book Appointment Card */}
                 <Link to="/patient/book-appointment" className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition group flex flex-col items-center text-center">
                     <div className="bg-blue-100 text-blue-600 p-4 rounded-full mb-4 group-hover:bg-blue-600 group-hover:text-white transition">
