@@ -95,6 +95,9 @@ public class AdmissionService {
         if (admission.getStatus() == AdmissionStatus.DISCHARGED) {
             throw new IllegalStateException("Patient has already been discharged on " + admission.getDischargeDate());
         }
+        if (admission.getStatus() != AdmissionStatus.ADMITTED) {
+            throw new IllegalStateException("Admission #" + admissionId + " cannot be discharged because status is " + admission.getStatus());
+        }
 
         LocalDateTime dischargeTime = LocalDateTime.now();
         admission.setDischargeDate(dischargeTime);
@@ -102,23 +105,28 @@ public class AdmissionService {
         admission.setStatus(AdmissionStatus.DISCHARGED);
 
         // Calculate days of stay (Minimum 1 day charged for same-day observation)
-        long days = ChronoUnit.DAYS.between(admission.getAdmissionDate().toLocalDate(), dischargeTime.toLocalDate());
+        LocalDateTime admissionTime = admission.getAdmissionDate() != null ? admission.getAdmissionDate() : dischargeTime.minusDays(1);
+        long days = ChronoUnit.DAYS.between(admissionTime.toLocalDate(), dischargeTime.toLocalDate());
         if (days < 1) {
             days = 1;
         }
 
         Bed bed = admission.getBed();
+        if (bed != null && bed.getId() != null) {
+            bed = bedRepository.findByIdForUpdate(bed.getId()).orElse(bed);
+            bed.setStatus(BedStatus.AVAILABLE);
+            bedRepository.save(bed);
+            admission.setBed(bed);
+        }
+
         Double dailyRate = bed != null ? bed.getEffectiveDailyRate() : 2500.0;
-        Double totalBedCharge = days * dailyRate;
+        if (dailyRate == null || dailyRate <= 0) {
+            dailyRate = 2500.0;
+        }
+        Double totalBedCharge = Math.round(days * dailyRate * 100.0) / 100.0;
 
         admission.setTotalDays(days);
         admission.setTotalBedCharge(totalBedCharge);
-
-        // Set Bed status back to AVAILABLE
-        if (bed != null) {
-            bed.setStatus(BedStatus.AVAILABLE);
-            bedRepository.save(bed);
-        }
 
         // Auto-bill total bed accommodation charges to patient's active invoice idempotently
         if (admission.getPatient() != null && bed != null && !Boolean.TRUE.equals(admission.getIsBilled())) {

@@ -247,6 +247,7 @@ public class InpatientBedAssignmentSafetyTest {
         activeAdmission.setIsBilled(false);
 
         when(admissionRepository.findById(501L)).thenReturn(Optional.of(activeAdmission));
+        when(bedRepository.findByIdForUpdate(102L)).thenReturn(Optional.of(occupiedBed));
         when(admissionRepository.save(any(Admission.class))).thenAnswer(i -> i.getArgument(0));
 
         Admission discharged = admissionService.dischargePatient(501L, "Satisfactory recovery");
