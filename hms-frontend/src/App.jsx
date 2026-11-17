@@ -97,6 +97,9 @@ function App() {
           <Route path="/receptionist/appointments" element={<Appointments />} />
           <Route path="/receptionist/billing" element={<Billing />} />
           <Route path="/receptionist/inpatient" element={<InpatientManagement />} />
+
+          {/* Accountant Specific Routes */}
+          <Route path="/accountant/billing" element={<Billing />} />
  
           {/* Patient Specific Routes */}
           <Route path="/patient/dashboard" element={<PatientDashboard />} />

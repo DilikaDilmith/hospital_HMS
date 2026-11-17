@@ -31,6 +31,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     // Count appointments by status
     long countByStatus(AppointmentStatus status);
 
+    // Count appointments scheduled between a time range (e.g. today)
+    long countByAppointmentDateTimeBetween(LocalDateTime start, LocalDateTime end);
+
     // Check if an active appointment already exists for a doctor at a specific date and time (excluding a status like CANCELLED)
     @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END FROM Appointment a " +
            "WHERE a.doctor.id = :doctorId " +

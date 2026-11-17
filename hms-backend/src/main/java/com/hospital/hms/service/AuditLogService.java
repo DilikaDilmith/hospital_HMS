@@ -36,6 +36,10 @@ public class AuditLogService {
         return auditLogRepository.save(auditLog);
     }
 
+    public AuditLog logAction(String username, String action, String result, String details) {
+        return log(username, action, result, details);
+    }
+
     public List<AuditLog> getAllLogs() {
         return auditLogRepository.findAllByOrderByTimestampDesc();
     }

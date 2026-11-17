@@ -41,6 +41,7 @@ function AdminDashboard() {
     const [stats, setStats] = useState({
         totalPatients: 0,
         totalAppointments: 0,
+        todaysAppointments: 0,
         totalLabRequests: 0,
         pendingLabTests: 0,
         lowStockMedicines: 0,
@@ -168,14 +169,14 @@ function AdminDashboard() {
                     </div>
                 </Link>
 
-                {/* Total Appointments Card */}
+                {/* Today's Appointments Card (SRS Section 7) */}
                 <Link to="/admin/appointments" className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-indigo-500 hover:shadow-md transition group">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-xs uppercase font-bold text-gray-500 tracking-wider">Appointments</p>
-                            <h3 className="text-3xl font-black text-gray-900 mt-2">{stats.totalAppointments}</h3>
+                            <p className="text-xs uppercase font-bold text-gray-500 tracking-wider">Today's Appointments</p>
+                            <h3 className="text-3xl font-black text-gray-900 mt-2">{stats.todaysAppointments ?? stats.totalAppointments}</h3>
                             <span className="text-xs text-indigo-600 font-semibold mt-2 inline-block group-hover:underline">
-                                Check appointment schedule &rarr;
+                                {stats.totalAppointments} Total Scheduled &rarr;
                             </span>
                         </div>
                         <div className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition">

@@ -23,6 +23,7 @@ function Appointments() {
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [dateFilter, setDateFilter] = useState('');
 
     const fetchAppointments = async () => {
         setLoading(true);
@@ -71,6 +72,12 @@ function Appointments() {
         if (statusFilter !== 'ALL') {
             const apptStatus = (appt.status || '').toUpperCase();
             if (apptStatus !== statusFilter) return false;
+        }
+
+        // Calendar Date filter check (YYYY-MM-DD)
+        if (dateFilter) {
+            const apptDate = appt.appointmentDateTime ? appt.appointmentDateTime.substring(0, 10) : '';
+            if (apptDate !== dateFilter) return false;
         }
 
         if (!query) return true;
@@ -299,6 +306,25 @@ function Appointments() {
                     )}
                 </div>
 
+                {/* Calendar / Date Filter (SRS Section 7) */}
+                <div className="flex items-center gap-2">
+                    <input 
+                        type="date"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        className="py-2.5 px-3 text-xs bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-xs text-gray-700"
+                        title="Filter by appointment date (Calendar View)"
+                    />
+                    {dateFilter && (
+                        <button
+                            onClick={() => setDateFilter('')}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                        >
+                            Clear Date
+                        </button>
+                    )}
+                </div>
+
                 {/* Status Filter Badges */}
                 <div className="flex items-center gap-1.5 bg-gray-100/80 p-1 rounded-xl self-start sm:self-auto overflow-x-auto max-w-full">
                     <button
@@ -479,12 +505,12 @@ function Appointments() {
                                         <div className="flex flex-col items-center justify-center text-gray-400">
                                             <FaCalendarCheck size={44} className="mb-3 text-gray-300" />
                                             <p className="text-base font-semibold text-gray-700">
-                                                {searchQuery || statusFilter !== 'ALL' 
+                                                {searchQuery || statusFilter !== 'ALL' || dateFilter
                                                     ? 'No matching appointments found' 
                                                     : 'No appointments scheduled in the database yet'}
                                             </p>
                                             <p className="text-xs text-gray-400 mt-1 max-w-sm">
-                                                {searchQuery || statusFilter !== 'ALL'
+                                                {searchQuery || statusFilter !== 'ALL' || dateFilter
                                                     ? 'Try adjusting your search terms or filter selection to find what you are looking for.'
                                                     : 'Click the "Book Appointment" button above to schedule your first patient visit.'}
                                             </p>

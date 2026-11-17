@@ -179,6 +179,18 @@ function Layout() {
             </>
           )}
 
+          {/* ACCOUNTANT ONLY ROUTES (SRS Section 2 & 3.8) */}
+          {role === "ACCOUNTANT" && (
+            <>
+              <div className="pt-3 pb-1 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Finance & Accounting
+              </div>
+              <Link to="/accountant/billing" className={linkClass("/accountant/billing")}>
+                <FaMoneyBill className="text-emerald-400" /> Itemized Billing & Invoicing
+              </Link>
+            </>
+          )}
+
           {/* PATIENT ROUTES */}
           {role === "PATIENT" && (
             <>
