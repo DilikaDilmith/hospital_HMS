@@ -186,6 +186,28 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
 
+    // Cancel an appointment: allow scheduled or confirmed appointments to be cancelled, prevent completed
+    @Transactional
+    public Appointment cancelAppointment(Long appointmentId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
+
+        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot cancel appointment #" + appointmentId + " because it is already completed.");
+        }
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
+            throw new IllegalStateException("Appointment #" + appointmentId + " is already cancelled.");
+        }
+        if (appointment.getStatus() != AppointmentStatus.SCHEDULED 
+                && appointment.getStatus() != AppointmentStatus.CONFIRMED
+                && appointment.getStatus() != AppointmentStatus.CHECKED_IN) {
+            throw new IllegalStateException("Cannot cancel appointment #" + appointmentId + " with status: " + appointment.getStatus());
+        }
+
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        return appointmentRepository.save(appointment);
+    }
+
     // Update appointment status to any of the 7 states
     @Transactional
     public Appointment updateAppointmentStatus(Long id, AppointmentStatus status) {
@@ -193,10 +215,20 @@ public class AppointmentService {
             return completeAppointment(id);
         } else if (status == AppointmentStatus.CHECKED_IN) {
             return checkInAppointment(id);
+        } else if (status == AppointmentStatus.CANCELLED) {
+            return cancelAppointment(id);
         }
 
         Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Appointment not found with ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + id));
+
+        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot modify appointment #" + id + " because it has already been completed.");
+        }
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot modify cancelled appointment #" + id + ".");
+        }
+
         appointment.setStatus(status);
         return appointmentRepository.save(appointment);
     }

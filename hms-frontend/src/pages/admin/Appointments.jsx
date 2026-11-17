@@ -193,6 +193,23 @@ function Appointments() {
         }
     };
 
+    const handleCancel = async (id) => {
+        if (!window.confirm(`Are you sure you want to cancel appointment #${id}? The slot will be released for other bookings.`)) {
+            return;
+        }
+        const token = localStorage.getItem('token');
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        try {
+            await axios.put(`http://localhost:8080/api/appointments/${id}/cancel`, {}, config);
+            alert(`Appointment #${id} cancelled successfully.`);
+            fetchAppointments();
+        } catch (err) {
+            console.error('Error cancelling appointment:', err);
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Failed to cancel appointment.';
+            alert(msg);
+        }
+    };
+
     // Calculate status counts
     const bookedCount = appointments.filter(a => (a.status || '').toUpperCase() === 'BOOKED').length;
     const completedCount = appointments.filter(a => (a.status || '').toUpperCase() === 'COMPLETED').length;
@@ -412,13 +429,22 @@ function Appointments() {
                                         <td className="p-4 text-center">
                                             <div className="flex items-center justify-center gap-1.5">
                                                 {((appt.status || '').toUpperCase() === 'SCHEDULED' || (appt.status || '').toUpperCase() === 'BOOKED' || (appt.status || '').toUpperCase() === 'CONFIRMED') && (
-                                                    <button
-                                                        onClick={() => handleCheckIn(appt.id)}
-                                                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
-                                                        title="Check In Patient"
-                                                    >
-                                                        Check In
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleCheckIn(appt.id)}
+                                                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                                                            title="Check In Patient"
+                                                        >
+                                                            Check In
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleCancel(appt.id)}
+                                                            className="px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                                                            title="Cancel Appointment"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </>
                                                 )}
                                                 {(appt.status || '').toUpperCase() === 'CHECKED_IN' && (
                                                     <button

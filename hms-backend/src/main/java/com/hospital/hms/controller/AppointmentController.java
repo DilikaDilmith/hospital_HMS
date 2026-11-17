@@ -132,6 +132,34 @@ public class AppointmentController {
         }
     }
 
+    // Dedicated endpoint to cancel an appointment (Patients can only cancel their own)
+    @PutMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_PATIENT')")
+    public ResponseEntity<?> cancelAppointment(@PathVariable Long id, Authentication authentication) {
+        try {
+            if (isCallerPatientOnly(authentication)) {
+                Appointment appt = appointmentService.getAppointmentById(id).orElse(null);
+                if (appt == null) {
+                    return ResponseEntity.notFound().build();
+                }
+                if (appt.getPatient() == null || appt.getPatient().getUser() == null
+                        || !appt.getPatient().getUser().getUsername().equals(authentication.getName())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("Access denied: You can only cancel your own appointments.");
+                }
+            }
+
+            Appointment cancelled = appointmentService.cancelAppointment(id);
+            return ResponseEntity.ok(cancelled);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to cancel appointment: " + e.getMessage());
+        }
+    }
+
     // General status update endpoint (SCHEDULED, CONFIRMED, CHECKED_IN, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW)
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_NURSE')")
