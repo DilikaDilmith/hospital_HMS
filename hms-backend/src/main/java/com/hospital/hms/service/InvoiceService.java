@@ -83,13 +83,22 @@ public class InvoiceService {
         return invoiceRepository.save(invoice);
     }
 
-    // Mark an invoice as PAID
+    // Mark an invoice as PAID with recorded payment details
     @Transactional
     public Invoice markInvoiceAsPaid(Long invoiceId) {
+        return markInvoiceAsPaid(invoiceId, "CASH / COUNTER");
+    }
+
+    @Transactional
+    public Invoice markInvoiceAsPaid(Long invoiceId, String paymentMethod) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + invoiceId));
 
         invoice.setStatus("PAID");
+        if (invoice.getPaidAt() == null) {
+            invoice.setPaidAt(LocalDateTime.now());
+        }
+        invoice.setPaymentMethod(paymentMethod != null && !paymentMethod.trim().isEmpty() ? paymentMethod.trim() : "CASH / COUNTER");
         return invoiceRepository.save(invoice);
     }
 

@@ -12,8 +12,10 @@ import {
     FaFlask, 
     FaPills, 
     FaBed, 
-    FaTag 
+    FaTag,
+    FaReceipt 
 } from 'react-icons/fa';
+import PrintableInvoiceModal from '../common/PrintableInvoiceModal';
 
 function InvoiceDetailsModal({ invoice, onClose, onInvoiceUpdated }) {
     const [newItem, setNewItem] = useState({
@@ -23,6 +25,8 @@ function InvoiceDetailsModal({ invoice, onClose, onInvoiceUpdated }) {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showAddItem, setShowAddItem] = useState(false);
+    const [showPrintModal, setShowPrintModal] = useState(false);
+    const [printMode, setPrintMode] = useState('INVOICE');
     const [error, setError] = useState('');
 
     const token = localStorage.getItem('token');
@@ -291,13 +295,30 @@ function InvoiceDetailsModal({ invoice, onClose, onInvoiceUpdated }) {
 
                 {/* Modal Footer Actions */}
                 <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3">
-                    <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="px-4 py-2 bg-white hover:bg-slate-100 text-gray-700 border border-slate-300 rounded-xl text-xs font-semibold flex items-center gap-2 transition"
-                    >
-                        <FaPrint size={13} /> Print Invoice
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setPrintMode('INVOICE');
+                                setShowPrintModal(true);
+                            }}
+                            className="px-4 py-2 bg-white hover:bg-slate-100 text-gray-700 border border-slate-300 rounded-xl text-xs font-semibold flex items-center gap-2 transition"
+                        >
+                            <FaPrint size={13} /> Print Invoice
+                        </button>
+                        {invoice.status === 'PAID' && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPrintMode('RECEIPT');
+                                    setShowPrintModal(true);
+                                }}
+                                className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+                            >
+                                <FaReceipt size={13} /> Print Receipt
+                            </button>
+                        )}
+                    </div>
 
                     <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                         {invoice.status !== 'PAID' && (
@@ -320,6 +341,15 @@ function InvoiceDetailsModal({ invoice, onClose, onInvoiceUpdated }) {
                 </div>
 
             </div>
+
+            {/* Printable Preview Modal */}
+            {showPrintModal && (
+                <PrintableInvoiceModal
+                    invoice={invoice}
+                    mode={printMode}
+                    onClose={() => setShowPrintModal(false)}
+                />
+            )}
         </div>
     );
 }

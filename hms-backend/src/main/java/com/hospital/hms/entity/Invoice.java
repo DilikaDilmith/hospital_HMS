@@ -38,6 +38,14 @@ public class Invoice {
     @Column(nullable = false)
     private LocalDateTime date;
 
+    // Date when payment was received (for receipts)
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    // Payment method recorded (e.g. CASH / COUNTER, CARD)
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
     // Multiple itemized charges under this invoice
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference

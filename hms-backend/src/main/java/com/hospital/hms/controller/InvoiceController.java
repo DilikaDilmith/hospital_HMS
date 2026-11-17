@@ -98,9 +98,12 @@ public class InvoiceController {
     // Endpoint to mark an invoice as PAID
     @PutMapping("/{id}/pay")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'ACCOUNTANT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_ACCOUNTANT')")
-    public ResponseEntity<?> markInvoiceAsPaid(@PathVariable Long id) {
+    public ResponseEntity<?> markInvoiceAsPaid(
+            @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, String> payload) {
         try {
-            Invoice updated = invoiceService.markInvoiceAsPaid(id);
+            String paymentMethod = payload != null ? payload.get("paymentMethod") : null;
+            Invoice updated = invoiceService.markInvoiceAsPaid(id, paymentMethod);
             return ResponseEntity.ok(updated);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to mark invoice as paid: " + e.getMessage());
