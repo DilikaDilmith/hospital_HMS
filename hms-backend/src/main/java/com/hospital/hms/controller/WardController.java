@@ -5,6 +5,7 @@ import com.hospital.hms.entity.BedStatus;
 import com.hospital.hms.entity.Ward;
 import com.hospital.hms.service.WardService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -73,6 +74,10 @@ public class WardController {
             BedStatus status = BedStatus.valueOf(statusStr.toUpperCase());
             Bed updated = wardService.updateBedStatus(bedId, status);
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to update bed status: " + e.getMessage());
         }

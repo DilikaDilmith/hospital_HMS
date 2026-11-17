@@ -26,6 +26,10 @@ public class AdmissionController {
         try {
             Admission created = admissionService.admitPatient(admission);
             return ResponseEntity.ok(created);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to admit patient: " + e.getMessage());
         }
@@ -41,6 +45,10 @@ public class AdmissionController {
             String notes = payload != null ? payload.get("dischargeNotes") : "";
             Admission discharged = admissionService.dischargePatient(id, notes);
             return ResponseEntity.ok(discharged);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to discharge patient: " + e.getMessage());
         }

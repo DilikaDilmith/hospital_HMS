@@ -28,4 +28,10 @@ public interface AdmissionRepository extends JpaRepository<Admission, Long> {
 
     // Find active admission for a bed
     Optional<Admission> findFirstByBedIdAndStatus(Long bedId, AdmissionStatus status);
+
+    // Check if a bed currently has an active admission
+    boolean existsByBedIdAndStatus(Long bedId, AdmissionStatus status);
+
+    // Check if a patient currently has an active admission
+    boolean existsByPatientIdAndStatus(Long patientId, AdmissionStatus status);
 }

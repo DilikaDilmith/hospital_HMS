@@ -262,8 +262,21 @@ public class InvoiceService {
     // Automatically add Inpatient Ward Stay Accommodation Charge to patient's active (UNPAID) invoice
     @Transactional
     public Invoice addWardFee(Patient patient, String wardName, String bedNumber, long days, Double dailyRate, Double totalCharge) {
+        return addWardFee(patient, null, wardName, bedNumber, days, dailyRate, totalCharge);
+    }
+
+    // Overloaded with admissionId for idempotency and duplicate charge prevention
+    @Transactional
+    public Invoice addWardFee(Patient patient, Long admissionId, String wardName, String bedNumber, long days, Double dailyRate, Double totalCharge) {
         if (patient == null || patient.getId() == null) {
             throw new IllegalArgumentException("Patient cannot be null for ward charges.");
+        }
+
+        // Idempotency check: prevent duplicate charges for the same admission
+        if (admissionId != null && invoiceItemRepository.existsByReferenceTypeAndReferenceId("ADMISSION", admissionId)) {
+            System.out.println("⚠️ Ward accommodation fee already billed for Admission #" + admissionId + ". Skipping duplicate charge.");
+            return invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
+                    .orElse(null);
         }
 
         Invoice invoice = invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(patient.getId(), "UNPAID")
@@ -279,6 +292,8 @@ public class InvoiceService {
         InvoiceItem wardItem = new InvoiceItem();
         wardItem.setInvoice(invoice);
         wardItem.setCategory("WARD");
+        wardItem.setReferenceType("ADMISSION");
+        wardItem.setReferenceId(admissionId);
         wardItem.setDescription("Inpatient Ward Stay (" + wardName + " - " + bedNumber + ") - " + days + " day(s) @ LKR " + String.format("%.2f", dailyRate) + "/day");
         wardItem.setAmount(totalCharge != null ? totalCharge : 0.0);
         wardItem.setCreatedAt(LocalDateTime.now());

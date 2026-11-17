@@ -71,7 +71,10 @@ public class WardService {
     @Transactional
     public Bed updateBedStatus(Long bedId, BedStatus status) {
         Bed bed = bedRepository.findById(bedId)
-                .orElseThrow(() -> new RuntimeException("Bed not found with ID: " + bedId));
+                .orElseThrow(() -> new IllegalArgumentException("Bed not found with ID: " + bedId));
+        if (bed.getStatus() == BedStatus.OCCUPIED && status != BedStatus.OCCUPIED) {
+            throw new IllegalStateException("Cannot change status of an occupied bed. Discharge the patient first.");
+        }
         bed.setStatus(status);
         return bedRepository.save(bed);
     }
