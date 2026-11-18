@@ -4,6 +4,7 @@ import com.hospital.hms.entity.Appointment;
 import com.hospital.hms.entity.AppointmentStatus;
 import com.hospital.hms.exception.AppointmentConflictException;
 import com.hospital.hms.service.AppointmentService;
+import com.hospital.hms.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,25 +23,51 @@ public class AppointmentController {
     @Autowired
     private AppointmentService appointmentService;
 
+    @Autowired(required = false)
+    private AuditLogService auditLogService;
+
+    public void setAppointmentService(AppointmentService appointmentService) {
+        this.appointmentService = appointmentService;
+    }
+
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
     // Endpoint to book an appointment (Patients auto-bind to their own profile; Staff can specify patient)
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_PATIENT')")
     public ResponseEntity<?> bookAppointment(@RequestBody Appointment appointment, Authentication authentication) {
+        String actor = (authentication != null) ? authentication.getName() : "PATIENT";
         try {
+            Appointment created;
             if (isCallerPatientOnly(authentication)) {
                 // Ignore any client-sent patient ID or status; securely bind to authenticated principal
-                Appointment created = appointmentService.bookAppointmentForUser(appointment, authentication.getName());
-                return ResponseEntity.status(HttpStatus.CREATED).body(created);
+                created = appointmentService.bookAppointmentForUser(appointment, authentication.getName());
             } else {
-                Appointment created = appointmentService.bookAppointment(appointment);
-                return ResponseEntity.status(HttpStatus.CREATED).body(created);
+                created = appointmentService.bookAppointment(appointment);
             }
+            if (auditLogService != null) {
+                String docName = (created.getDoctor() != null) ? ("Dr. " + created.getDoctor().getFirstName() + " " + created.getDoctor().getLastName()) : "N/A";
+                auditLogService.log(actor, "APPOINTMENT_BOOK", "SUCCESS",
+                        "Booked appointment ID: " + created.getId() + " with " + docName + " at " + created.getAppointmentDateTime());
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (AppointmentConflictException e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "APPOINTMENT_BOOK", "CONFLICT", e.getMessage());
+            }
             return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (IllegalArgumentException e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "APPOINTMENT_BOOK", "FAILED", e.getMessage());
+            }
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            if (auditLogService != null) {
+                auditLogService.log(actor, "APPOINTMENT_BOOK", "FAILED", "Failed to book appointment: " + e.getMessage());
+            }
+            return ResponseEntity.badRequest()
                     .body("Failed to book appointment: " + e.getMessage());
         }
     }

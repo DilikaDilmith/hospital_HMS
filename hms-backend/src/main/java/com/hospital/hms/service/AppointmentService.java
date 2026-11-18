@@ -4,10 +4,12 @@ import com.hospital.hms.entity.Appointment;
 import com.hospital.hms.entity.AppointmentStatus;
 import com.hospital.hms.entity.Doctor;
 import com.hospital.hms.entity.Patient;
+import com.hospital.hms.entity.User;
 import com.hospital.hms.exception.AppointmentConflictException;
 import com.hospital.hms.repository.AppointmentRepository;
 import com.hospital.hms.repository.DoctorRepository;
 import com.hospital.hms.repository.PatientRepository;
+import com.hospital.hms.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +36,36 @@ public class AppointmentService {
 
     @Autowired
     private InvoiceService invoiceService;
+
+    @Autowired(required = false)
+    private UserRepository userRepository;
+
+    @Autowired(required = false)
+    private PatientService patientService;
+
+    public void setAppointmentRepository(AppointmentRepository appointmentRepository) {
+        this.appointmentRepository = appointmentRepository;
+    }
+
+    public void setPatientRepository(PatientRepository patientRepository) {
+        this.patientRepository = patientRepository;
+    }
+
+    public void setDoctorRepository(DoctorRepository doctorRepository) {
+        this.doctorRepository = doctorRepository;
+    }
+
+    public void setInvoiceService(InvoiceService invoiceService) {
+        this.invoiceService = invoiceService;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public void setPatientService(PatientService patientService) {
+        this.patientService = patientService;
+    }
 
     // Validate that the doctor does not already have an active (non-cancelled) appointment at the requested date and time
     public void validateNoDoctorConflict(Long doctorId, LocalDateTime dateTime, Long currentAppointmentId) {
@@ -130,7 +162,15 @@ public class AppointmentService {
     @Transactional
     public Appointment bookAppointmentForUser(Appointment appointment, String username) {
         Patient patient = patientRepository.findByUserUsername(username)
-                .orElseThrow(() -> new RuntimeException("No patient profile found for user: " + username + ". Please ensure your patient profile exists."));
+                .orElseGet(() -> {
+                    if (userRepository != null && patientService != null) {
+                        User user = userRepository.findByUsername(username).orElse(null);
+                        if (user != null) {
+                            return patientService.createPatientForUser(user);
+                        }
+                    }
+                    throw new IllegalArgumentException("No patient profile found for user: " + username + ". Please ensure your profile is set up.");
+                });
 
         if (appointment.getAppointmentDateTime() == null) {
             throw new IllegalArgumentException("Appointment date and time is required.");
@@ -143,7 +183,7 @@ public class AppointmentService {
             throw new IllegalArgumentException("A valid doctor must be selected.");
         }
         Doctor doctor = doctorRepository.findById(appointment.getDoctor().getId())
-                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + appointment.getDoctor().getId()));
+                .orElseThrow(() -> new IllegalArgumentException("Doctor not found with ID: " + appointment.getDoctor().getId()));
 
         appointment.setPatient(patient);
         appointment.setDoctor(doctor);
