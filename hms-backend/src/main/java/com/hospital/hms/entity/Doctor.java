@@ -54,12 +54,12 @@ public class Doctor {
 
     // Daily start time of availability (e.g. 08:00)
     @Column(name = "available_time_start")
-    @JsonFormat(pattern = "HH:mm")
+    @JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime availableTimeStart = LocalTime.of(8, 0);
 
     // Daily end time of availability (e.g. 20:00)
     @Column(name = "available_time_end")
-    @JsonFormat(pattern = "HH:mm")
+    @JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime availableTimeEnd = LocalTime.of(20, 0);
 
     @PrePersist

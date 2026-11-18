@@ -90,6 +90,9 @@ function AddDoctorModal({ onClose, onDoctorAdded }) {
     setIsSubmitting(true);
 
     try {
+      const startStr = (doctorData.availableTimeStart || "08:00").slice(0, 5);
+      const endStr = (doctorData.availableTimeEnd || "17:00").slice(0, 5);
+
       const payload = {
         firstName: doctorData.firstName.trim(),
         lastName: doctorData.lastName.trim(),
@@ -99,14 +102,8 @@ function AddDoctorModal({ onClose, onDoctorAdded }) {
         consultationFee: parseFloat(doctorData.consultationFee) || 1500.0,
         department: { id: parseInt(doctorData.departmentId, 10) },
         availableDays: selectedDays.join(","),
-        availableTimeStart:
-          doctorData.availableTimeStart.length === 5
-            ? `${doctorData.availableTimeStart}:00`
-            : doctorData.availableTimeStart,
-        availableTimeEnd:
-          doctorData.availableTimeEnd.length === 5
-            ? `${doctorData.availableTimeEnd}:00`
-            : doctorData.availableTimeEnd,
+        availableTimeStart: `${startStr}:00`,
+        availableTimeEnd: `${endStr}:00`,
       };
 
       await axios.post("http://localhost:8080/api/doctors", payload, config);
@@ -116,10 +113,14 @@ function AddDoctorModal({ onClose, onDoctorAdded }) {
     } catch (err) {
       setIsSubmitting(false);
       console.error("Error adding doctor:", err);
-      const msg =
-        err.response?.data?.message ||
-        (typeof err.response?.data === "string" ? err.response.data : null) ||
-        "Failed to add doctor. Please check details.";
+      let msg = "Failed to add doctor. Please check details.";
+      if (!err.response) {
+        msg = "Backend server is unreachable at http://localhost:8080. Please ensure Spring Boot is running.";
+      } else if (typeof err.response.data === "string" && err.response.data.trim()) {
+        msg = err.response.data;
+      } else if (err.response.data?.message) {
+        msg = err.response.data.message;
+      }
       setError(msg);
     }
   };

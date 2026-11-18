@@ -1,19 +1,28 @@
 package com.hospital.hms;
 
+import com.hospital.hms.controller.DoctorController;
 import com.hospital.hms.entity.*;
 import com.hospital.hms.exception.AppointmentConflictException;
 import com.hospital.hms.repository.AppointmentRepository;
+import com.hospital.hms.repository.DepartmentRepository;
 import com.hospital.hms.repository.DoctorRepository;
 import com.hospital.hms.repository.PatientRepository;
+import com.hospital.hms.repository.UserRepository;
 import com.hospital.hms.service.AppointmentService;
+import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.DoctorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
@@ -280,5 +289,63 @@ public class DoctorManagementTest {
         assertEquals(validFridaySlot, rescheduled.getAppointmentDateTime());
         assertEquals(AppointmentStatus.SCHEDULED, rescheduled.getStatus());
         verify(appointmentRepository, times(1)).save(appt);
+    }
+
+    @Test
+    @DisplayName("Task 3.2: createDoctor successfully provisions Doctor profile and APPROVED User account")
+    void testCreateDoctor_CreatesDoctorAndApprovedUser() {
+        DoctorController controller = new DoctorController();
+        controller.setDoctorService(doctorService);
+        UserRepository mockUserRepo = mock(UserRepository.class);
+        DepartmentRepository mockDeptRepo = mock(DepartmentRepository.class);
+        PasswordEncoder mockEncoder = mock(PasswordEncoder.class);
+        AuditLogService mockAudit = mock(AuditLogService.class);
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("admin");
+
+        controller.setUserRepository(mockUserRepo);
+        controller.setDepartmentRepository(mockDeptRepo);
+        controller.setPasswordEncoder(mockEncoder);
+        controller.setAuditLogService(mockAudit);
+
+        when(mockEncoder.encode(any())).thenReturn("hashed_pass");
+        when(mockUserRepo.findByUsername("doc@gmail.com")).thenReturn(Optional.empty());
+        when(doctorRepository.save(any(Doctor.class))).thenAnswer(inv -> {
+            Doctor d = inv.getArgument(0);
+            d.setId(99L);
+            return d;
+        });
+
+        Doctor docInput = new Doctor();
+        docInput.setFirstName("Docter");
+        docInput.setLastName("Doc");
+        docInput.setSpecialization("brain");
+        docInput.setPhoneNumber("022665544823");
+        docInput.setEmail("doc@gmail.com");
+        docInput.setConsultationFee(1550.0);
+
+        ResponseEntity<?> response = controller.createDoctor(docInput, auth);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(mockUserRepo).save(userCaptor.capture());
+        User savedUser = userCaptor.getValue();
+        assertEquals("doc@gmail.com", savedUser.getUsername());
+        assertEquals("APPROVED", savedUser.getStatus());
+        assertEquals(Role.DOCTOR, savedUser.getRole());
+        assertEquals("Dr. Docter Doc", savedUser.getFullName());
+    }
+
+    @Test
+    @DisplayName("Task 3.2: createDoctor validates required fields")
+    void testCreateDoctor_Validation() {
+        DoctorController controller = new DoctorController();
+        Doctor doc = new Doctor();
+        doc.setFirstName("");
+
+        ResponseEntity<?> res = controller.createDoctor(doc, null);
+        assertEquals(HttpStatus.BAD_REQUEST, res.getStatusCode());
+        assertTrue(res.getBody().toString().contains("First name is required"));
     }
 }

@@ -1,14 +1,18 @@
 package com.hospital.hms.controller;
 
+import com.hospital.hms.entity.Department;
 import com.hospital.hms.entity.Doctor;
 import com.hospital.hms.entity.Role;
 import com.hospital.hms.entity.User;
+import com.hospital.hms.repository.DepartmentRepository;
 import com.hospital.hms.repository.UserRepository;
+import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.DoctorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,32 +28,110 @@ public class DoctorController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired(required = false)
+    private DepartmentRepository departmentRepository;
+
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired(required = false)
+    private AuditLogService auditLogService;
+
+    public void setDoctorService(DoctorService doctorService) {
+        this.doctorService = doctorService;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public void setDepartmentRepository(DepartmentRepository departmentRepository) {
+        this.departmentRepository = departmentRepository;
+    }
+
+    public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
-    public Doctor createDoctor(@RequestBody Doctor doctor) {
-        
-        // 1. Save the doctor profile first
-        Doctor savedDoctor = doctorService.saveDoctor(doctor);
+    public ResponseEntity<?> createDoctor(@RequestBody Doctor doctor, Authentication authentication) {
+        String actor = (authentication != null) ? authentication.getName() : "ADMIN";
+        try {
+            if (doctor.getFirstName() == null || doctor.getFirstName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("First name is required.");
+            }
+            if (doctor.getLastName() == null || doctor.getLastName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Last name is required.");
+            }
+            if (doctor.getSpecialization() == null || doctor.getSpecialization().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Specialization is required.");
+            }
+            if (doctor.getPhoneNumber() == null || doctor.getPhoneNumber().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Phone number is required.");
+            }
 
-        // 2. Automatically create a User account for this doctor so they can log in
-        // We use the doctor's email prefix or a generic name as the username
-        String username = savedDoctor.getFirstName().toLowerCase() + "123"; // e.g., kamal123
-        
-        if (userRepository.findByUsername(username).isEmpty()) {
-            User doctorUser = new User();
-            doctorUser.setUsername(username);
-            doctorUser.setPassword(passwordEncoder.encode("doctor123")); // Default password
-            doctorUser.setFullName("Dr. " + savedDoctor.getFirstName() + " " + savedDoctor.getLastName());
-            doctorUser.setRole(Role.DOCTOR);
-            
-            userRepository.save(doctorUser);
-            System.out.println("✅ Created login account for Doctor: " + username);
+            // Link managed department if provided
+            if (doctor.getDepartment() != null && doctor.getDepartment().getId() != null && departmentRepository != null) {
+                Department dept = departmentRepository.findById(doctor.getDepartment().getId()).orElse(null);
+                doctor.setDepartment(dept);
+            }
+
+            // 1. Save doctor profile first
+            Doctor savedDoctor = doctorService.saveDoctor(doctor);
+
+            // 2. Automatically create an approved login User account for this doctor
+            String baseUsername = (savedDoctor.getEmail() != null && !savedDoctor.getEmail().trim().isEmpty())
+                    ? savedDoctor.getEmail().trim().toLowerCase()
+                    : savedDoctor.getFirstName().trim().toLowerCase().replaceAll("[^a-z0-9]", "") + "123";
+
+            String username = baseUsername;
+            int counter = 1;
+            while (userRepository.findByUsername(username).isPresent()) {
+                username = baseUsername.contains("@")
+                        ? baseUsername.replace("@", counter + "@")
+                        : baseUsername + counter;
+                counter++;
+                if (counter > 100) break;
+            }
+
+            if (userRepository.findByUsername(username).isEmpty()) {
+                User doctorUser = new User();
+                doctorUser.setUsername(username);
+                doctorUser.setPassword(passwordEncoder.encode("doctor123")); // Default password
+                doctorUser.setFullName("Dr. " + savedDoctor.getFirstName() + " " + savedDoctor.getLastName());
+                doctorUser.setRole(Role.DOCTOR);
+                doctorUser.setStatus("APPROVED"); // Crucial: must be APPROVED for login
+                
+                userRepository.save(doctorUser);
+                System.out.println("✅ Created login account for Doctor: " + username);
+            }
+
+            if (auditLogService != null) {
+                auditLogService.log(actor, "DOCTOR_CREATE", "SUCCESS",
+                        "Created doctor ID: " + savedDoctor.getId() + " (Dr. " + savedDoctor.getFirstName() + " " + savedDoctor.getLastName() + ")");
+            }
+
+            return ResponseEntity.ok(savedDoctor);
+        } catch (IllegalArgumentException e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "DOCTOR_CREATE", "FAILED", e.getMessage());
+            }
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "DOCTOR_CREATE", "FAILED", "Failed to add doctor: " + e.getMessage());
+            }
+            return ResponseEntity.badRequest().body("Failed to add doctor: " + e.getMessage());
         }
+    }
 
-        return savedDoctor;
+    public ResponseEntity<?> createDoctor(Doctor doctor) {
+        return createDoctor(doctor, null);
     }
 
     @GetMapping
