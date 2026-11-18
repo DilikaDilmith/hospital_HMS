@@ -47,7 +47,14 @@ function InpatientManagement() {
             setLoading(false);
         } catch (err) {
             console.error("Error loading inpatient data:", err);
-            setError("Failed to fetch inpatient and bed roster details.");
+            if (err.response?.status === 403) {
+                const currentRole = localStorage.getItem('role') || 'Unknown';
+                setError(`Access Forbidden (403): You are currently signed in with role '${currentRole}'. Inpatient ward and bed management is restricted to Hospital Staff (Admin, Nurse, Receptionist, Doctor). Please log out and sign in with an Admin or Staff account.`);
+            } else if (err.response?.status === 401) {
+                setError("Authentication session expired (401). Please log in again.");
+            } else {
+                setError("Failed to fetch inpatient and bed roster details. Please ensure Spring Boot is running.");
+            }
             setLoading(false);
         }
     };
