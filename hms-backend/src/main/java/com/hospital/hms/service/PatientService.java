@@ -24,11 +24,22 @@ public class PatientService {
     // Register a new patient in the system
     @Transactional
     public Patient registerPatient(Patient patient) {
-        // Sanitize NIC: if empty or only whitespace, set to null to avoid unique constraint violations in DB
-        if (patient.getNic() != null && patient.getNic().trim().isEmpty()) {
+        if (patient.getFirstName() == null || patient.getFirstName().trim().isEmpty()) {
+            throw new IllegalArgumentException("First name is required.");
+        }
+        if (patient.getLastName() == null || patient.getLastName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Last name is required.");
+        }
+
+        // Sanitize and validate NIC uniqueness
+        if (patient.getNic() != null && !patient.getNic().trim().isEmpty()) {
+            String cleanNic = patient.getNic().trim();
+            if (patientRepository.existsByNic(cleanNic)) {
+                throw new IllegalArgumentException("A patient with NIC '" + cleanNic + "' is already registered in the system.");
+            }
+            patient.setNic(cleanNic);
+        } else {
             patient.setNic(null);
-        } else if (patient.getNic() != null) {
-            patient.setNic(patient.getNic().trim());
         }
 
         // Link existing user if provided
@@ -107,7 +118,15 @@ public class PatientService {
             patient.setLastName(updatedData.getLastName().trim());
         }
         if (updatedData.getNic() != null) {
-            patient.setNic(updatedData.getNic().trim().isEmpty() ? null : updatedData.getNic().trim());
+            String cleanNic = updatedData.getNic().trim();
+            if (!cleanNic.isEmpty()) {
+                if (patient.getId() != null && patientRepository.existsByNicAndIdNot(cleanNic, patient.getId())) {
+                    throw new IllegalArgumentException("A patient with NIC '" + cleanNic + "' is already registered in the system.");
+                }
+                patient.setNic(cleanNic);
+            } else {
+                patient.setNic(null);
+            }
         }
         if (updatedData.getDateOfBirth() != null) {
             patient.setDateOfBirth(updatedData.getDateOfBirth());
@@ -134,7 +153,15 @@ public class PatientService {
         if (updatedData.getFirstName() != null) patient.setFirstName(updatedData.getFirstName().trim());
         if (updatedData.getLastName() != null) patient.setLastName(updatedData.getLastName().trim());
         if (updatedData.getNic() != null) {
-            patient.setNic(updatedData.getNic().trim().isEmpty() ? null : updatedData.getNic().trim());
+            String cleanNic = updatedData.getNic().trim();
+            if (!cleanNic.isEmpty()) {
+                if (patient.getId() != null && patientRepository.existsByNicAndIdNot(cleanNic, patient.getId())) {
+                    throw new IllegalArgumentException("A patient with NIC '" + cleanNic + "' is already registered in the system.");
+                }
+                patient.setNic(cleanNic);
+            } else {
+                patient.setNic(null);
+            }
         }
         if (updatedData.getDateOfBirth() != null) patient.setDateOfBirth(updatedData.getDateOfBirth());
         if (updatedData.getGender() != null) patient.setGender(updatedData.getGender());

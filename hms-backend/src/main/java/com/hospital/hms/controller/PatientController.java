@@ -42,12 +42,22 @@ public class PatientController {
                         "Registered patient ID: " + savedPatient.getId() + " (" + savedPatient.getFirstName() + " " + savedPatient.getLastName() + ")");
             }
             return ResponseEntity.ok(savedPatient);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             if (auditLogService != null) {
-                auditLogService.log(actor, "PATIENT_REGISTER", "FAILED",
-                        "Failed patient registration: " + e.getMessage());
+                auditLogService.log(actor, "PATIENT_REGISTER", "FAILED", e.getMessage());
             }
-            return ResponseEntity.badRequest().body("Failed to register patient: " + e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && (errorMsg.contains("Duplicate entry") || errorMsg.contains("constraint"))) {
+                errorMsg = "A patient with this National Identity Card (NIC) is already registered in the system.";
+            } else {
+                errorMsg = "Failed to register patient: " + (errorMsg != null ? errorMsg : "Unexpected error");
+            }
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_REGISTER", "FAILED", errorMsg);
+            }
+            return ResponseEntity.badRequest().body(errorMsg);
         }
     }
 

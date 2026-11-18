@@ -62,11 +62,15 @@ function AddPatientModal({ onClose, onPatientAdded }) {
             if (!err.response) {
                 errMsg = 'Backend server is unreachable at http://localhost:8080. Please ensure the Spring Boot backend is running.';
             } else if (err.response.status === 403) {
-                errMsg = 'Access Forbidden (403): Receptionist is not authorized on the backend. Please restart your Spring Boot backend to apply updated permissions.';
-            } else if (err.response.data?.message) {
-                errMsg = err.response.data.message;
+                errMsg = 'Access Forbidden (403): You are not authorized to register patients.';
             } else if (typeof err.response.data === 'string') {
                 errMsg = err.response.data;
+            } else if (err.response.data?.message) {
+                errMsg = err.response.data.message;
+            }
+            
+            if (errMsg.includes('Duplicate entry') || errMsg.includes('constraint') || errMsg.includes('already registered')) {
+                errMsg = 'A patient with this National Identity Card (NIC) is already registered in the system. Please verify the NIC or leave it blank if unavailable.';
             }
             setError(errMsg);
         }
@@ -133,6 +137,7 @@ function AddPatientModal({ onClose, onPatientAdded }) {
                                 placeholder="e.g. 199512345678"
                                 className="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition" 
                             />
+                            <p className="text-[11px] text-gray-400 mt-1">Leave blank if unavailable. Must be unique if provided.</p>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Date of Birth *</label>

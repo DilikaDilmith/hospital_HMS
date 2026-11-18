@@ -21,4 +21,7 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
 
     // Check if patient with given NIC exists
     boolean existsByNic(String nic);
+
+    // Check if patient with given NIC exists excluding a specific patient ID (for safe updates)
+    boolean existsByNicAndIdNot(String nic, Long id);
 }
