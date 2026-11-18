@@ -1,10 +1,10 @@
 package com.hospital.hms;
 
 import com.hospital.hms.controller.PatientController;
-import com.hospital.hms.entity.Patient;
-import com.hospital.hms.repository.PatientRepository;
-import com.hospital.hms.repository.UserRepository;
+import com.hospital.hms.entity.*;
+import com.hospital.hms.repository.*;
 import com.hospital.hms.service.AuditLogService;
+import com.hospital.hms.service.PatientDocumentService;
 import com.hospital.hms.service.PatientService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 
 import java.time.LocalDate;
+import java.util.Collections;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +30,24 @@ public class PatientRegistrationSafetyTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AdmissionRepository admissionRepository;
+
+    @Mock
+    private AppointmentRepository appointmentRepository;
+
+    @Mock
+    private InvoiceRepository invoiceRepository;
+
+    @Mock
+    private LabTestRepository labTestRepository;
+
+    @Mock
+    private MedicalRecordRepository medicalRecordRepository;
+
+    @Mock
+    private PatientDocumentService patientDocumentService;
 
     @Mock
     private AuditLogService auditLogService;
@@ -213,5 +233,83 @@ public class PatientRegistrationSafetyTest {
         assertEquals(4, saved1.getAge());
         assertEquals(7, saved2.getAge());
         verify(patientRepository, times(2)).save(any(Patient.class));
+    }
+
+    @Test
+    public void testDeletePatient_Success_DeletesPatientAndDependencies() {
+        Patient patient = new Patient();
+        patient.setId(50L);
+        patient.setFirstName("Kasun");
+        patient.setLastName("Perera");
+
+        User patientUser = new User();
+        patientUser.setId(105L);
+        patientUser.setUsername("kasun@portal.lk");
+        patientUser.setRole(Role.PATIENT);
+        patient.setUser(patientUser);
+
+        when(patientRepository.findById(50L)).thenReturn(Optional.of(patient));
+        when(admissionRepository.existsByPatientIdAndStatus(50L, AdmissionStatus.ADMITTED)).thenReturn(false);
+        when(invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(50L, "UNPAID")).thenReturn(Optional.empty());
+        when(invoiceRepository.findByPatientIdOrderByDateDesc(50L)).thenReturn(Collections.emptyList());
+        when(appointmentRepository.findByPatientId(50L)).thenReturn(Collections.emptyList());
+        when(admissionRepository.findByPatientIdOrderByAdmissionDateDesc(50L)).thenReturn(Collections.emptyList());
+        when(labTestRepository.findByPatientIdOrderByRequestedAtDesc(50L)).thenReturn(Collections.emptyList());
+        when(medicalRecordRepository.findByPatientIdOrderByRecordDateDesc(50L)).thenReturn(Collections.emptyList());
+        when(patientDocumentService.getDocumentsByPatientId(50L)).thenReturn(Collections.emptyList());
+
+        ResponseEntity<?> response = patientController.deletePatient(50L, authentication);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody().toString().contains("deleted successfully"));
+        verify(userRepository, times(1)).delete(patientUser);
+        verify(patientRepository, times(1)).delete(patient);
+        verify(auditLogService, times(1)).log(eq("admin"), eq("PATIENT_DELETE"), eq("SUCCESS"), anyString());
+    }
+
+    @Test
+    public void testDeletePatient_FailsWhenPatientActivelyAdmitted() {
+        Patient patient = new Patient();
+        patient.setId(50L);
+
+        when(patientRepository.findById(50L)).thenReturn(Optional.of(patient));
+        when(admissionRepository.existsByPatientIdAndStatus(50L, AdmissionStatus.ADMITTED)).thenReturn(true);
+
+        ResponseEntity<?> response = patientController.deletePatient(50L, authentication);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody().toString().contains("active hospital admission"));
+        verify(patientRepository, never()).delete(any());
+        verify(auditLogService, times(1)).log(eq("admin"), eq("PATIENT_DELETE"), eq("FAILED"), anyString());
+    }
+
+    @Test
+    public void testDeletePatient_FailsWhenUnpaidInvoicesExist() {
+        Patient patient = new Patient();
+        patient.setId(50L);
+
+        Invoice unpaidInv = new Invoice();
+        unpaidInv.setStatus("UNPAID");
+
+        when(patientRepository.findById(50L)).thenReturn(Optional.of(patient));
+        when(admissionRepository.existsByPatientIdAndStatus(50L, AdmissionStatus.ADMITTED)).thenReturn(false);
+        when(invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(50L, "UNPAID")).thenReturn(Optional.of(unpaidInv));
+
+        ResponseEntity<?> response = patientController.deletePatient(50L, authentication);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody().toString().contains("unpaid invoices"));
+        verify(patientRepository, never()).delete(any());
+        verify(auditLogService, times(1)).log(eq("admin"), eq("PATIENT_DELETE"), eq("FAILED"), anyString());
+    }
+
+    @Test
+    public void testDeletePatient_NotFound_Returns404() {
+        when(patientRepository.findById(999L)).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = patientController.deletePatient(999L, authentication);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        verify(patientRepository, never()).delete(any());
     }
 }

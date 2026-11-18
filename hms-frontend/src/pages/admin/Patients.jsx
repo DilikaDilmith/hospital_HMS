@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaPlus, FaUserInjured, FaSearch, FaSpinner, FaExclamationCircle, FaSync, FaFolderOpen } from 'react-icons/fa';
+import { FaPlus, FaUserInjured, FaSearch, FaSpinner, FaExclamationCircle, FaSync, FaFolderOpen, FaTrash, FaCheckCircle } from 'react-icons/fa';
 import AddPatientModal from '../../components/admin/AddPatientModal';
 import PatientDocumentsModal from '../../components/admin/PatientDocumentsModal';
 
@@ -10,7 +10,9 @@ function Patients() {
     const [selectedPatientForDocs, setSelectedPatientForDocs] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [successBanner, setSuccessBanner] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [deletingId, setDeletingId] = useState(null);
 
     const fetchPatients = async () => {
         setLoading(true);
@@ -62,6 +64,37 @@ function Patients() {
         return fullName.includes(query) || nic.includes(query) || phone.includes(query) || address.includes(query);
     });
 
+    const handleDeletePatient = async (patient) => {
+        const confirmed = window.confirm(
+            `Are you sure you want to delete patient "${patient.firstName} ${patient.lastName}" (ID: #${patient.id}) from the database? This action cannot be undone.`
+        );
+        if (!confirmed) return;
+
+        setDeletingId(patient.id);
+        setError('');
+        setSuccessBanner('');
+
+        const token = localStorage.getItem('token');
+        const config = {
+            headers: { Authorization: `Bearer ${token}` }
+        };
+
+        try {
+            await axios.delete(`http://localhost:8080/api/patients/${patient.id}`, config);
+            setSuccessBanner(`Patient "${patient.firstName} ${patient.lastName}" (ID: #${patient.id}) was successfully deleted.`);
+            fetchPatients();
+        } catch (err) {
+            console.error("Error deleting patient:", err);
+            const errMsg =
+                (typeof err.response?.data === 'string' ? err.response.data : null) ||
+                err.response?.data?.message ||
+                "Failed to delete patient. Please verify the patient does not have active admissions or unpaid invoices.";
+            setError(errMsg);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     return (
         <div>
             {/* Page Header */}
@@ -91,6 +124,22 @@ function Patients() {
                     </button>
                 </div>
             </div>
+
+            {/* Success Banner */}
+            {successBanner && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-2xl text-green-700 text-sm flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                        <FaCheckCircle className="text-green-500 flex-shrink-0" size={16} />
+                        <span className="font-semibold">{successBanner}</span>
+                    </div>
+                    <button 
+                        onClick={() => setSuccessBanner('')}
+                        className="text-green-600 hover:text-green-800 font-bold"
+                    >
+                        &times;
+                    </button>
+                </div>
+            )}
 
             {/* Error Banner */}
             {error && (
@@ -205,14 +254,25 @@ function Patients() {
                                         <td className="p-4 text-xs text-gray-700 font-medium">{patient.phoneNumber}</td>
                                         <td className="p-4 text-xs text-gray-500 max-w-xs truncate">{patient.address || '-'}</td>
                                         <td className="p-4 text-right">
-                                            <button
-                                                onClick={() => setSelectedPatientForDocs(patient)}
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition"
-                                                title="View & Upload Patient Documents"
-                                            >
-                                                <FaFolderOpen size={13} />
-                                                <span>Documents</span>
-                                            </button>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => setSelectedPatientForDocs(patient)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition"
+                                                    title="View & Upload Patient Documents"
+                                                >
+                                                    <FaFolderOpen size={13} />
+                                                    <span>Documents</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeletePatient(patient)}
+                                                    disabled={deletingId === patient.id}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                                                    title="Delete Patient Record"
+                                                >
+                                                    <FaTrash size={12} />
+                                                    <span>{deletingId === patient.id ? 'Deleting...' : 'Delete'}</span>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

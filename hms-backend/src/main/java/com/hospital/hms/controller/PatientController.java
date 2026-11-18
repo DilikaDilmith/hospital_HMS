@@ -159,6 +159,44 @@ public class PatientController {
         }
     }
 
+    // Endpoint to delete a patient by ID (Admin only)
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<?> deletePatient(@PathVariable Long id, Authentication authentication) {
+        String actor = (authentication != null) ? authentication.getName() : "ADMIN";
+        try {
+            Patient patient = patientService.getPatientById(id).orElse(null);
+            String patientName = (patient != null) ? (patient.getFirstName() + " " + patient.getLastName()) : ("ID #" + id);
+
+            patientService.deletePatient(id);
+
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_DELETE", "SUCCESS", "Deleted patient profile: " + patientName + " (ID: " + id + ")");
+            }
+
+            return ResponseEntity.ok("Patient " + patientName + " was deleted successfully.");
+        } catch (IllegalArgumentException e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_DELETE", "FAILED", e.getMessage());
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_DELETE", "FAILED", e.getMessage());
+            }
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "PATIENT_DELETE", "FAILED", "Failed to delete patient ID " + id + ": " + e.getMessage());
+            }
+            return ResponseEntity.badRequest().body("Failed to delete patient: " + e.getMessage());
+        }
+    }
+
+    public ResponseEntity<?> deletePatient(Long id) {
+        return deletePatient(id, null);
+    }
+
     // Helper: returns true if the authenticated user only has PATIENT role
     private boolean isCallerPatientOnly(Authentication authentication) {
         if (authentication == null) return false;

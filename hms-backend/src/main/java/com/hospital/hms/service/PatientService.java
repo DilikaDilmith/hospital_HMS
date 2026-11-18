@@ -1,9 +1,7 @@
 package com.hospital.hms.service;
 
-import com.hospital.hms.entity.Patient;
-import com.hospital.hms.entity.User;
-import com.hospital.hms.repository.PatientRepository;
-import com.hospital.hms.repository.UserRepository;
+import com.hospital.hms.entity.*;
+import com.hospital.hms.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +18,56 @@ public class PatientService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired(required = false)
+    private AppointmentRepository appointmentRepository;
+
+    @Autowired(required = false)
+    private AdmissionRepository admissionRepository;
+
+    @Autowired(required = false)
+    private InvoiceRepository invoiceRepository;
+
+    @Autowired(required = false)
+    private LabTestRepository labTestRepository;
+
+    @Autowired(required = false)
+    private MedicalRecordRepository medicalRecordRepository;
+
+    @Autowired(required = false)
+    private PatientDocumentService patientDocumentService;
+
+    public void setPatientRepository(PatientRepository patientRepository) {
+        this.patientRepository = patientRepository;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public void setAppointmentRepository(AppointmentRepository appointmentRepository) {
+        this.appointmentRepository = appointmentRepository;
+    }
+
+    public void setAdmissionRepository(AdmissionRepository admissionRepository) {
+        this.admissionRepository = admissionRepository;
+    }
+
+    public void setInvoiceRepository(InvoiceRepository invoiceRepository) {
+        this.invoiceRepository = invoiceRepository;
+    }
+
+    public void setLabTestRepository(LabTestRepository labTestRepository) {
+        this.labTestRepository = labTestRepository;
+    }
+
+    public void setMedicalRecordRepository(MedicalRecordRepository medicalRecordRepository) {
+        this.medicalRecordRepository = medicalRecordRepository;
+    }
+
+    public void setPatientDocumentService(PatientDocumentService patientDocumentService) {
+        this.patientDocumentService = patientDocumentService;
+    }
 
     // Register a new patient in the system
     @Transactional
@@ -228,5 +276,83 @@ public class PatientService {
         if (updatedData.getAddress() != null) patient.setAddress(updatedData.getAddress().trim());
 
         return patientRepository.save(patient);
+    }
+
+    // Safely delete patient by ID (Admin only, cleaning child dependencies and guarding active admissions/unpaid invoices)
+    @Transactional
+    public void deletePatient(Long id) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found with ID: " + id));
+
+        // 1. Guard against deleting patient currently admitted in hospital
+        if (admissionRepository != null && admissionRepository.existsByPatientIdAndStatus(id, AdmissionStatus.ADMITTED)) {
+            throw new IllegalStateException("Cannot delete patient: Patient currently has an active hospital admission. Please discharge the patient first.");
+        }
+
+        // 2. Guard against deleting patient with unpaid invoices
+        if (invoiceRepository != null) {
+            boolean hasUnpaid = invoiceRepository.findFirstByPatientIdAndStatusOrderByIdDesc(id, "UNPAID").isPresent();
+            if (hasUnpaid) {
+                throw new IllegalStateException("Cannot delete patient: Patient has pending unpaid invoices. Please settle or cancel invoices before deleting.");
+            }
+            // Clean up paid invoices
+            List<Invoice> invoices = invoiceRepository.findByPatientIdOrderByDateDesc(id);
+            if (!invoices.isEmpty()) {
+                invoiceRepository.deleteAll(invoices);
+            }
+        }
+
+        // 3. Delete uploaded documents (physical files and DB records)
+        if (patientDocumentService != null) {
+            List<PatientDocument> docs = patientDocumentService.getDocumentsByPatientId(id);
+            for (PatientDocument doc : docs) {
+                patientDocumentService.deleteDocument(doc.getId());
+            }
+        }
+
+        // 4. Clean up appointments
+        if (appointmentRepository != null) {
+            List<Appointment> appts = appointmentRepository.findByPatientId(id);
+            if (!appts.isEmpty()) {
+                appointmentRepository.deleteAll(appts);
+            }
+        }
+
+        // 5. Clean up discharged admissions
+        if (admissionRepository != null) {
+            List<Admission> admissions = admissionRepository.findByPatientIdOrderByAdmissionDateDesc(id);
+            if (!admissions.isEmpty()) {
+                admissionRepository.deleteAll(admissions);
+            }
+        }
+
+        // 6. Clean up lab tests
+        if (labTestRepository != null) {
+            List<LabTest> tests = labTestRepository.findByPatientIdOrderByRequestedAtDesc(id);
+            if (!tests.isEmpty()) {
+                labTestRepository.deleteAll(tests);
+            }
+        }
+
+        // 7. Clean up medical records
+        if (medicalRecordRepository != null) {
+            List<MedicalRecord> records = medicalRecordRepository.findByPatientIdOrderByRecordDateDesc(id);
+            if (!records.isEmpty()) {
+                medicalRecordRepository.deleteAll(records);
+            }
+        }
+
+        // 8. Clean up linked portal User account if one was created for this patient
+        User user = patient.getUser();
+        if (user != null && userRepository != null) {
+            patient.setUser(null);
+            patientRepository.save(patient); // Detach user first
+            if (user.getRole() == Role.PATIENT) {
+                userRepository.delete(user);
+            }
+        }
+
+        // 9. Delete patient profile
+        patientRepository.delete(patient);
     }
 }
