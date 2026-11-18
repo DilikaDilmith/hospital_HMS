@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaUserMd, FaPlus, FaEdit, FaClock, FaCalendarAlt } from 'react-icons/fa';
+import { FaUserMd, FaPlus, FaEdit, FaTrash, FaClock, FaCalendarAlt } from 'react-icons/fa';
 import AddDoctorModal from '../../components/admin/AddDoctorModal';
 import EditDoctorModal from '../../components/admin/EditDoctorModal';
 
@@ -9,6 +9,7 @@ function Doctors() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedDoctorForEdit, setSelectedDoctorForEdit] = useState(null);
     const [statusBanner, setStatusBanner] = useState({ type: '', message: '' });
+    const [deletingId, setDeletingId] = useState(null);
 
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -46,6 +47,37 @@ function Doctors() {
         const s = start ? start.substring(0, 5) : '08:00';
         const e = end ? end.substring(0, 5) : '17:00';
         return `${s} - ${e}`;
+    };
+
+    const handleDeleteDoctor = async (doc) => {
+        const confirmed = window.confirm(
+            `Are you sure you want to delete Dr. ${doc.firstName} ${doc.lastName}? This action cannot be undone.`
+        );
+        if (!confirmed) return;
+
+        setDeletingId(doc.id);
+        setStatusBanner({ type: '', message: '' });
+
+        try {
+            await axios.delete(`http://localhost:8080/api/doctors/${doc.id}`, config);
+            setStatusBanner({
+                type: 'success',
+                message: `Dr. ${doc.firstName} ${doc.lastName} was deleted successfully.`
+            });
+            fetchDoctors();
+        } catch (error) {
+            console.error("Error deleting doctor:", error);
+            const errMsg =
+                (typeof error.response?.data === 'string' ? error.response.data : null) ||
+                error.response?.data?.message ||
+                "Failed to delete doctor.";
+            setStatusBanner({
+                type: 'error',
+                message: errMsg
+            });
+        } finally {
+            setDeletingId(null);
+        }
     };
 
     return (
@@ -129,14 +161,25 @@ function Doctors() {
                                         </div>
                                     </td>
                                     <td className="p-4 text-right">
-                                        <button
-                                            onClick={() => setSelectedDoctorForEdit(doc)}
-                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition"
-                                            title="Edit Doctor Details & Availability"
-                                        >
-                                            <FaEdit size={12} />
-                                            <span>Edit</span>
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => setSelectedDoctorForEdit(doc)}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition"
+                                                title="Edit Doctor Details & Availability"
+                                            >
+                                                <FaEdit size={12} />
+                                                <span>Edit</span>
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteDoctor(doc)}
+                                                disabled={deletingId === doc.id}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                                                title="Delete Doctor"
+                                            >
+                                                <FaTrash size={12} />
+                                                <span>{deletingId === doc.id ? 'Deleting...' : 'Delete'}</span>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))

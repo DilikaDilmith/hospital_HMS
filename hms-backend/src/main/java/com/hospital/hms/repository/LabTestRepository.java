@@ -25,6 +25,9 @@ public interface LabTestRepository extends JpaRepository<LabTest, Long> {
     // Retrieve all tests ordered by a specific doctor
     List<LabTest> findByDoctorIdOrderByRequestedAtDesc(Long doctorId);
 
+    // Count tests ordered by a specific doctor
+    long countByDoctorId(Long doctorId);
+
     // Retrieve tests filtered by status
     List<LabTest> findByStatusOrderByRequestedAtDesc(LabTestStatus status);
 }

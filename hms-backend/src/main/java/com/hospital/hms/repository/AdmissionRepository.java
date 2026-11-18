@@ -26,6 +26,9 @@ public interface AdmissionRepository extends JpaRepository<Admission, Long> {
     // Retrieve admissions assigned to a doctor
     List<Admission> findByDoctorIdOrderByAdmissionDateDesc(Long doctorId);
 
+    // Count admissions assigned to a doctor
+    long countByDoctorId(Long doctorId);
+
     // Find active admission for a bed
     Optional<Admission> findFirstByBedIdAndStatus(Long bedId, AdmissionStatus status);
 

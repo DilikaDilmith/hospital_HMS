@@ -18,4 +18,7 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Lo
 
     // Find all medical records for a patient by username
     List<MedicalRecord> findByPatientUserUsernameOrderByRecordDateDesc(String username);
+
+    // Count medical records created by a specific doctor
+    long countByDoctorId(Long doctorId);
 }

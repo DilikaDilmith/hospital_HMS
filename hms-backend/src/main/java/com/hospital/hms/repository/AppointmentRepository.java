@@ -25,6 +25,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     // Retrieve all appointments for a specific doctor
     List<Appointment> findByDoctorId(Long doctorId);
 
+    // Count appointments for a specific doctor
+    long countByDoctorId(Long doctorId);
+
     // Retrieve appointments filtered by status
     List<Appointment> findByStatus(AppointmentStatus status);
 

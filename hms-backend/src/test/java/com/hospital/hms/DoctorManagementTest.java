@@ -3,11 +3,7 @@ package com.hospital.hms;
 import com.hospital.hms.controller.DoctorController;
 import com.hospital.hms.entity.*;
 import com.hospital.hms.exception.AppointmentConflictException;
-import com.hospital.hms.repository.AppointmentRepository;
-import com.hospital.hms.repository.DepartmentRepository;
-import com.hospital.hms.repository.DoctorRepository;
-import com.hospital.hms.repository.PatientRepository;
-import com.hospital.hms.repository.UserRepository;
+import com.hospital.hms.repository.*;
 import com.hospital.hms.service.AppointmentService;
 import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.DoctorService;
@@ -46,6 +42,18 @@ public class DoctorManagementTest {
 
     @Mock
     private PatientRepository patientRepository;
+
+    @Mock
+    private AdmissionRepository admissionRepository;
+
+    @Mock
+    private LabTestRepository labTestRepository;
+
+    @Mock
+    private MedicalRecordRepository medicalRecordRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private DoctorService doctorService;
@@ -347,5 +355,97 @@ public class DoctorManagementTest {
         ResponseEntity<?> res = controller.createDoctor(doc, null);
         assertEquals(HttpStatus.BAD_REQUEST, res.getStatusCode());
         assertTrue(res.getBody().toString().contains("First name is required"));
+    }
+
+    @Test
+    @DisplayName("DoctorService: deleteDoctor successfully deletes doctor and associated user account when no records exist")
+    void testDeleteDoctor_Success() {
+        when(doctorRepository.findById(10L)).thenReturn(Optional.of(sampleDoctor));
+        when(appointmentRepository.countByDoctorId(10L)).thenReturn(0L);
+        when(admissionRepository.countByDoctorId(10L)).thenReturn(0L);
+        when(labTestRepository.countByDoctorId(10L)).thenReturn(0L);
+        when(medicalRecordRepository.countByDoctorId(10L)).thenReturn(0L);
+
+        User doctorUser = new User();
+        doctorUser.setUsername("kasun.bandara@hospital.lk");
+        doctorUser.setRole(Role.DOCTOR);
+        when(userRepository.findByUsername("kasun.bandara@hospital.lk")).thenReturn(Optional.of(doctorUser));
+
+        doctorService.deleteDoctor(10L);
+
+        verify(userRepository, times(1)).delete(doctorUser);
+        verify(doctorRepository, times(1)).delete(sampleDoctor);
+    }
+
+    @Test
+    @DisplayName("DoctorService: deleteDoctor throws IllegalStateException when doctor has existing appointments")
+    void testDeleteDoctor_FailsWhenAppointmentsExist() {
+        when(doctorRepository.findById(10L)).thenReturn(Optional.of(sampleDoctor));
+        when(appointmentRepository.countByDoctorId(10L)).thenReturn(2L);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> {
+            doctorService.deleteDoctor(10L);
+        });
+
+        assertTrue(ex.getMessage().contains("existing appointments"));
+        verify(doctorRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("DoctorService: deleteDoctor throws IllegalArgumentException when doctor is not found")
+    void testDeleteDoctor_NotFound() {
+        when(doctorRepository.findById(999L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            doctorService.deleteDoctor(999L);
+        });
+
+        assertTrue(ex.getMessage().contains("Doctor not found"));
+        verify(doctorRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("DoctorController: deleteDoctor returns OK and logs audit on success")
+    void testDoctorController_DeleteDoctor_Success() {
+        DoctorController controller = new DoctorController();
+        controller.setDoctorService(doctorService);
+        AuditLogService mockAudit = mock(AuditLogService.class);
+        controller.setAuditLogService(mockAudit);
+
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("admin");
+
+        when(doctorRepository.findById(10L)).thenReturn(Optional.of(sampleDoctor));
+        when(appointmentRepository.countByDoctorId(10L)).thenReturn(0L);
+        when(admissionRepository.countByDoctorId(10L)).thenReturn(0L);
+        when(labTestRepository.countByDoctorId(10L)).thenReturn(0L);
+        when(medicalRecordRepository.countByDoctorId(10L)).thenReturn(0L);
+
+        ResponseEntity<?> response = controller.deleteDoctor(10L, auth);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody().toString().contains("deleted successfully"));
+        verify(mockAudit, times(1)).log(eq("admin"), eq("DOCTOR_DELETE"), eq("SUCCESS"), anyString());
+    }
+
+    @Test
+    @DisplayName("DoctorController: deleteDoctor returns Bad Request when doctor has active records")
+    void testDoctorController_DeleteDoctor_BlockedByAppointments() {
+        DoctorController controller = new DoctorController();
+        controller.setDoctorService(doctorService);
+        AuditLogService mockAudit = mock(AuditLogService.class);
+        controller.setAuditLogService(mockAudit);
+
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("admin");
+
+        when(doctorRepository.findById(10L)).thenReturn(Optional.of(sampleDoctor));
+        when(appointmentRepository.countByDoctorId(10L)).thenReturn(1L);
+
+        ResponseEntity<?> response = controller.deleteDoctor(10L, auth);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody().toString().contains("existing appointments"));
+        verify(mockAudit, times(1)).log(eq("admin"), eq("DOCTOR_DELETE"), eq("FAILED"), anyString());
     }
 }

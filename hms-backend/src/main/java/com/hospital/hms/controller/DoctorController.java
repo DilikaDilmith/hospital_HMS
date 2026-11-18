@@ -162,4 +162,42 @@ public class DoctorController {
             return ResponseEntity.badRequest().body("Failed to update doctor: " + e.getMessage());
         }
     }
+
+    // Delete doctor by ID (Admin only)
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<?> deleteDoctor(@PathVariable Long id, Authentication authentication) {
+        String actor = (authentication != null) ? authentication.getName() : "ADMIN";
+        try {
+            Doctor doctor = doctorService.getDoctorById(id).orElse(null);
+            String docName = (doctor != null) ? ("Dr. " + doctor.getFirstName() + " " + doctor.getLastName()) : ("ID #" + id);
+
+            doctorService.deleteDoctor(id);
+
+            if (auditLogService != null) {
+                auditLogService.log(actor, "DOCTOR_DELETE", "SUCCESS", "Deleted doctor profile: " + docName + " (ID: " + id + ")");
+            }
+
+            return ResponseEntity.ok("Doctor " + docName + " deleted successfully.");
+        } catch (IllegalArgumentException e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "DOCTOR_DELETE", "FAILED", e.getMessage());
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "DOCTOR_DELETE", "FAILED", e.getMessage());
+            }
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.log(actor, "DOCTOR_DELETE", "FAILED", "Failed to delete doctor ID " + id + ": " + e.getMessage());
+            }
+            return ResponseEntity.badRequest().body("Failed to delete doctor: " + e.getMessage());
+        }
+    }
+
+    public ResponseEntity<?> deleteDoctor(Long id) {
+        return deleteDoctor(id, null);
+    }
 }
