@@ -1,9 +1,12 @@
 package com.hospital.hms.controller;
 
 import com.hospital.hms.dto.ChangePasswordRequest;
+import com.hospital.hms.entity.Role;
 import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.UserRepository;
 import com.hospital.hms.service.AuditLogService;
+import com.hospital.hms.service.DoctorService;
+import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,12 +30,34 @@ public class UserController {
     @Autowired(required = false)
     private AuditLogService auditLogService;
 
+    @Autowired(required = false)
+    private DoctorService doctorService;
+
+    @Autowired(required = false)
+    private PatientService patientService;
+
     public UserController() {}
 
     public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder, AuditLogService auditLogService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditLogService = auditLogService;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
+    public void setDoctorService(DoctorService doctorService) {
+        this.doctorService = doctorService;
+    }
+
+    public void setPatientService(PatientService patientService) {
+        this.patientService = patientService;
     }
 
     // Get all users who are waiting for approval
@@ -45,11 +70,37 @@ public class UserController {
     // Approve a user
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public String approveUser(@PathVariable Long id) {
+    public String approveUser(@PathVariable Long id, Authentication authentication) {
+        String actor = (authentication != null) ? authentication.getName() : "ADMIN";
         User user = userRepository.findById(id).orElseThrow();
         user.setStatus("APPROVED");
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // Auto-provision Doctor or Patient entity upon Admin approval
+        if (savedUser.getRole() == Role.DOCTOR && doctorService != null) {
+            try {
+                doctorService.createDoctorForUser(savedUser);
+            } catch (Exception e) {
+                System.err.println("⚠️ Warning: Could not auto-create Doctor entity for approved user: " + e.getMessage());
+            }
+        } else if (savedUser.getRole() == Role.PATIENT && patientService != null) {
+            try {
+                patientService.createPatientForUser(savedUser);
+            } catch (Exception e) {
+                System.err.println("⚠️ Warning: Could not auto-create Patient entity for approved user: " + e.getMessage());
+            }
+        }
+
+        if (auditLogService != null) {
+            auditLogService.log(actor, "USER_APPROVE", "SUCCESS",
+                    "Approved user: " + savedUser.getUsername() + " [Role: " + savedUser.getRole() + "]");
+        }
+
         return "User Approved!";
+    }
+
+    public String approveUser(Long id) {
+        return approveUser(id, null);
     }
 
     // Reject a user

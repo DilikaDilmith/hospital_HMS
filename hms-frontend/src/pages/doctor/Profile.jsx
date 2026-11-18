@@ -18,17 +18,34 @@ function DoctorProfile() {
 
     useEffect(() => {
         const fetchProfile = async () => {
-            // 1. Get User Data
-            const userRes = await axios.get('http://localhost:8080/api/users/profile', config);
-            setUser(userRes.data);
+            try {
+                // 1. Get User Data
+                const userRes = await axios.get('http://localhost:8080/api/users/profile', config);
+                setUser(userRes.data);
 
-            // 2. Get Doctor Data (Match by email or name)
-            const docRes = await axios.get('http://localhost:8080/api/doctors', config);
-            const currentDoctor = docRes.data.find(d => 
-                d.email === userRes.data.username || 
-                `${d.firstName} ${d.lastName}` === userRes.data.fullName
-            );
-            if (currentDoctor) setDoctor(currentDoctor);
+                // 2. Priority: Fetch doctor profile directly from dedicated /api/doctors/profile
+                try {
+                    const myDocRes = await axios.get('http://localhost:8080/api/doctors/profile', config);
+                    if (myDocRes.data) {
+                        setDoctor(myDocRes.data);
+                        return;
+                    }
+                } catch (e) {
+                    // Fallback to searching doctors list
+                }
+
+                // 3. Fallback: Search in all doctors
+                const docRes = await axios.get('http://localhost:8080/api/doctors', config);
+                const currentDoctor = docRes.data.find(d => 
+                    d.user?.username === userRes.data.username ||
+                    d.user?.id === userRes.data.id ||
+                    d.email === userRes.data.username || 
+                    `${d.firstName} ${d.lastName}` === userRes.data.fullName
+                );
+                if (currentDoctor) setDoctor(currentDoctor);
+            } catch (err) {
+                console.error("Error fetching doctor profile:", err);
+            }
         };
         fetchProfile();
     }, []);

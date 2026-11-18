@@ -2,6 +2,7 @@ package com.hospital.hms;
 
 import com.hospital.hms.entity.*;
 import com.hospital.hms.repository.*;
+import com.hospital.hms.service.DoctorService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +26,7 @@ public class DataInitializer {
             BedRepository bedRepository,
             EmployeeRepository employeeRepository,
             AttendanceRepository attendanceRepository,
+            DoctorService doctorService,
             PasswordEncoder passwordEncoder, 
             JdbcTemplate jdbcTemplate) {
         return args -> {
@@ -56,12 +58,25 @@ public class DataInitializer {
             } catch (Exception ignored) {}
 
             try {
+                jdbcTemplate.execute("ALTER TABLE doctors ADD COLUMN user_id BIGINT UNIQUE NULL");
+            } catch (Exception ignored) {}
+
+            try {
                 jdbcTemplate.execute("ALTER TABLE lab_tests MODIFY COLUMN status VARCHAR(30) NOT NULL DEFAULT 'REQUESTED'");
             } catch (Exception ignored) {}
 
             try {
                 jdbcTemplate.execute("ALTER TABLE lab_tests ADD COLUMN test_fee DOUBLE NOT NULL DEFAULT 2500.0");
             } catch (Exception ignored) {}
+
+            // Auto-sync approved doctor users with doctor profiles
+            try {
+                if (doctorService != null) {
+                    doctorService.syncApprovedDoctorUsers();
+                }
+            } catch (Exception ex) {
+                System.err.println("⚠️ Warning during startup doctor sync: " + ex.getMessage());
+            }
 
             // 1. Ensure default "admin" user exists and is APPROVED
             userRepository.findByUsername("admin").ifPresentOrElse(

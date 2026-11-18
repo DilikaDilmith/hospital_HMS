@@ -1,5 +1,6 @@
 package com.hospital.hms.repository;
 
+import com.hospital.hms.entity.Role;
 import com.hospital.hms.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -10,9 +11,11 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
     
-    
     Optional<User> findByUsername(String username);
     
-    
-    List<User> findByStatus(String status); 
+    List<User> findByStatus(String status);
+
+    List<User> findByRole(Role role);
+
+    List<User> findByRoleAndStatus(Role role, String status);
 }

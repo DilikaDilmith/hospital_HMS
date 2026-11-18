@@ -8,6 +8,7 @@ import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.UserRepository;
 import com.hospital.hms.security.JwtService;
 import com.hospital.hms.service.AuditLogService;
+import com.hospital.hms.service.DoctorService;
 import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -39,11 +40,22 @@ public class AuthController {
     @Autowired
     private PatientService patientService;
 
-    @Autowired
+    @Autowired(required = false)
+    private DoctorService doctorService;
+
+    @Autowired(required = false)
     private AuditLogService auditLogService;
 
     public void setAuditLogService(AuditLogService auditLogService) {
         this.auditLogService = auditLogService;
+    }
+
+    public void setDoctorService(DoctorService doctorService) {
+        this.doctorService = doctorService;
+    }
+
+    public void setPatientService(PatientService patientService) {
+        this.patientService = patientService;
     }
 
     // Endpoint to handle user login requests
@@ -157,6 +169,13 @@ public class AuthController {
                     System.out.println("✅ Automatically created linked Patient record for User: " + savedUser.getUsername());
                 } catch (Exception pe) {
                     System.err.println("⚠️ Warning: Could not auto-create linked Patient record: " + pe.getMessage());
+                }
+            } else if (savedUser.getRole() == Role.DOCTOR && doctorService != null) {
+                try {
+                    doctorService.createDoctorForUser(savedUser);
+                    System.out.println("✅ Automatically created linked Doctor record for User: " + savedUser.getUsername());
+                } catch (Exception de) {
+                    System.err.println("⚠️ Warning: Could not auto-create linked Doctor record: " + de.getMessage());
                 }
             }
 

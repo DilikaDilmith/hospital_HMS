@@ -151,6 +151,18 @@ public class DoctorController {
         return doctorService.getAllDoctors();
     }
 
+    // Retrieve logged-in doctor's own profile
+    @GetMapping("/profile")
+    @PreAuthorize("hasAnyAuthority('DOCTOR', 'ROLE_DOCTOR', 'ADMIN', 'ROLE_ADMIN')")
+    public ResponseEntity<?> getMyDoctorProfile(Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        }
+        Optional<Doctor> opt = doctorService.getDoctorByUsername(authentication.getName());
+        return opt.<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("Doctor profile not found for user: " + authentication.getName()));
+    }
+
     // Retrieve single doctor by ID
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_PATIENT')")

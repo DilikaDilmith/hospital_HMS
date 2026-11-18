@@ -1,10 +1,12 @@
 package com.hospital.hms.service;
 
+import com.hospital.hms.entity.Department;
 import com.hospital.hms.entity.Doctor;
 import com.hospital.hms.entity.Role;
 import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.AdmissionRepository;
 import com.hospital.hms.repository.AppointmentRepository;
+import com.hospital.hms.repository.DepartmentRepository;
 import com.hospital.hms.repository.DoctorRepository;
 import com.hospital.hms.repository.LabTestRepository;
 import com.hospital.hms.repository.MedicalRecordRepository;
@@ -13,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +39,9 @@ public class DoctorService {
 
     @Autowired(required = false)
     private UserRepository userRepository;
+
+    @Autowired(required = false)
+    private DepartmentRepository departmentRepository;
 
     public void setDoctorRepository(DoctorRepository doctorRepository) {
         this.doctorRepository = doctorRepository;
@@ -61,15 +67,111 @@ public class DoctorService {
         this.userRepository = userRepository;
     }
 
+    public void setDepartmentRepository(DepartmentRepository departmentRepository) {
+        this.departmentRepository = departmentRepository;
+    }
+
     // Save a new doctor to the database
     @Transactional
     public Doctor saveDoctor(Doctor doctor) {
         return doctorRepository.save(doctor);
     }
 
-    // Retrieve all doctors from the database
+    // Automatically create and link a corresponding Doctor profile for a User with DOCTOR role
+    @Transactional
+    public Doctor createDoctorForUser(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        // 1. Check if Doctor already exists for this User ID
+        if (user.getId() != null) {
+            Optional<Doctor> existingByUserId = doctorRepository.findByUserId(user.getId());
+            if (existingByUserId.isPresent()) {
+                return existingByUserId.get();
+            }
+        }
+
+        // 2. Check if Doctor already exists for this username
+        if (user.getUsername() != null && !user.getUsername().trim().isEmpty()) {
+            Optional<Doctor> existingByUsername = doctorRepository.findByUserUsername(user.getUsername().trim());
+            if (existingByUsername.isPresent()) {
+                return existingByUsername.get();
+            }
+
+            // 3. Match by email if username is an email address
+            if (user.getUsername().contains("@")) {
+                Optional<Doctor> byEmail = doctorRepository.findByEmailIgnoreCase(user.getUsername().trim());
+                if (byEmail.isPresent()) {
+                    Doctor d = byEmail.get();
+                    if (d.getUser() == null) {
+                        d.setUser(user);
+                        return doctorRepository.save(d);
+                    }
+                    return d;
+                }
+            }
+        }
+
+        // 4. Create new Doctor profile
+        Doctor doctor = new Doctor();
+        doctor.setUser(user);
+
+        // Parse first and last name from user's full name (stripping Dr. prefix if present)
+        String fullName = (user.getFullName() != null && !user.getFullName().trim().isEmpty())
+                ? user.getFullName().trim()
+                : user.getUsername();
+        String cleanName = fullName.replaceFirst("(?i)^dr\\.?\\s+", "").trim();
+        String[] parts = cleanName.split("\\s+", 2);
+        doctor.setFirstName(parts[0]);
+        doctor.setLastName(parts.length > 1 ? parts[1] : "Physician");
+
+        doctor.setSpecialization("General Medicine");
+        doctor.setPhoneNumber("");
+        doctor.setEmail(user.getUsername() != null && user.getUsername().contains("@")
+                ? user.getUsername().trim().toLowerCase()
+                : (user.getUsername() != null ? user.getUsername().trim().toLowerCase() + "@hospital.lk" : "doctor@hospital.lk"));
+        doctor.setConsultationFee(1500.0);
+        doctor.setAvailableDays("MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY");
+        doctor.setAvailableTimeStart(LocalTime.of(8, 0));
+        doctor.setAvailableTimeEnd(LocalTime.of(17, 0));
+
+        // Assign a default department if available
+        if (departmentRepository != null) {
+            Department defaultDept = departmentRepository.findAll().stream().findFirst().orElse(null);
+            doctor.setDepartment(defaultDept);
+        }
+
+        Doctor saved = doctorRepository.save(doctor);
+        System.out.println("✅ Automatically created linked Doctor profile for User: " + user.getUsername() + " (ID: " + saved.getId() + ")");
+        return saved;
+    }
+
+    // Auto-sync any approved doctor users who do not yet have a Doctor entity (e.g., users approved via sign-up)
+    @Transactional
+    public void syncApprovedDoctorUsers() {
+        if (userRepository == null) return;
+        try {
+            List<User> approvedDoctors = userRepository.findByRoleAndStatus(Role.DOCTOR, "APPROVED");
+            for (User user : approvedDoctors) {
+                boolean hasDoc = (user.getId() != null && doctorRepository.findByUserId(user.getId()).isPresent())
+                        || (user.getUsername() != null && doctorRepository.findByUserUsername(user.getUsername()).isPresent());
+                if (!hasDoc) {
+                    createDoctorForUser(user);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Warning during doctor user sync: " + e.getMessage());
+        }
+    }
+
+    // Retrieve all doctors from the database (ensuring approved signed-up doctors are synced & active)
     public List<Doctor> getAllDoctors() {
-        return doctorRepository.findAll();
+        syncApprovedDoctorUsers();
+        return doctorRepository.findAll().stream()
+                .filter(d -> d.getUser() == null || !"REJECTED".equalsIgnoreCase(d.getUser().getStatus()))
+                .filter(d -> d.getUser() == null || !"PENDING".equalsIgnoreCase(d.getUser().getStatus()))
+                .toList();
     }
 
     // Retrieve single doctor by ID
