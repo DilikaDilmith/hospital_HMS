@@ -59,7 +59,18 @@ public class PatientController {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             String errorMsg = e.getMessage();
-            if (errorMsg != null && (errorMsg.contains("Duplicate entry") || errorMsg.contains("constraint"))) {
+            Throwable current = e;
+            boolean isDuplicateNic = false;
+            while (current != null) {
+                String msg = current.getMessage();
+                if (msg != null && (msg.contains("Duplicate entry") || msg.contains("UK2bet3hc33mwd8qepbkgx0bsr") || msg.contains("UK2bet3hc33mwd8qiepbkgx0bsr") || msg.toLowerCase().contains("nic"))) {
+                    isDuplicateNic = true;
+                    break;
+                }
+                current = current.getCause();
+            }
+
+            if (isDuplicateNic) {
                 errorMsg = "A patient with this National Identity Card (NIC) is already registered in the system.";
             } else {
                 errorMsg = "Failed to register patient: " + (errorMsg != null ? errorMsg : "Unexpected error");

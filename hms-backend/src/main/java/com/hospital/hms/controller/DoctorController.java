@@ -99,16 +99,18 @@ public class DoctorController {
                 if (counter > 100) break;
             }
 
-            if (userRepository.findByUsername(username).isEmpty()) {
+            if (userRepository != null && userRepository.findByUsername(username).isEmpty()) {
                 User doctorUser = new User();
                 doctorUser.setUsername(username);
-                doctorUser.setPassword(passwordEncoder.encode("doctor123")); // Default password
+                doctorUser.setPassword(passwordEncoder != null ? passwordEncoder.encode("doctor123") : "doctor123"); // Default password
                 doctorUser.setFullName("Dr. " + savedDoctor.getFirstName() + " " + savedDoctor.getLastName());
                 doctorUser.setRole(Role.DOCTOR);
                 doctorUser.setStatus("APPROVED"); // Crucial: must be APPROVED for login
                 
-                userRepository.save(doctorUser);
-                System.out.println("✅ Created login account for Doctor: " + username);
+                User savedUser = userRepository.save(doctorUser);
+                savedDoctor.setUser(savedUser);
+                doctorService.saveDoctor(savedDoctor);
+                System.out.println("✅ Created and linked login account for Doctor: " + username);
             }
 
             if (auditLogService != null) {
@@ -123,10 +125,19 @@ public class DoctorController {
             }
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
-            if (auditLogService != null) {
-                auditLogService.log(actor, "DOCTOR_CREATE", "FAILED", "Failed to add doctor: " + e.getMessage());
+            String msg = e.getMessage();
+            Throwable current = e;
+            while (current != null) {
+                if (current.getMessage() != null && (current.getMessage().toLowerCase().contains("duplicate") || current.getMessage().toLowerCase().contains("unique"))) {
+                    msg = "A doctor or user account with this email or username already exists.";
+                    break;
+                }
+                current = current.getCause();
             }
-            return ResponseEntity.badRequest().body("Failed to add doctor: " + e.getMessage());
+            if (auditLogService != null) {
+                auditLogService.log(actor, "DOCTOR_CREATE", "FAILED", "Failed to add doctor: " + msg);
+            }
+            return ResponseEntity.badRequest().body("Failed to add doctor: " + msg);
         }
     }
 
@@ -135,14 +146,14 @@ public class DoctorController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_PATIENT')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_PATIENT')")
     public List<Doctor> getAllDoctors() {
         return doctorService.getAllDoctors();
     }
 
     // Retrieve single doctor by ID
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_PATIENT')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'DOCTOR', 'RECEPTIONIST', 'NURSE', 'PATIENT', 'ROLE_ADMIN', 'ROLE_DOCTOR', 'ROLE_RECEPTIONIST', 'ROLE_NURSE', 'ROLE_PATIENT')")
     public ResponseEntity<?> getDoctorById(@PathVariable Long id) {
         return doctorService.getDoctorById(id)
                 .<ResponseEntity<?>>map(ResponseEntity::ok)

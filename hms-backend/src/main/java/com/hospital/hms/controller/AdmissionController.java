@@ -21,7 +21,7 @@ public class AdmissionController {
 
     // Endpoint to admit a patient to a bed (Sets Bed to OCCUPIED)
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE', 'ROLE_ADMIN', 'ROLE_RECEPTIONIST', 'ROLE_DOCTOR', 'ROLE_NURSE')")
     public ResponseEntity<?> admitPatient(@RequestBody Admission admission) {
         try {
             Admission created = admissionService.admitPatient(admission);

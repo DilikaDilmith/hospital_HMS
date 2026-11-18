@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +44,9 @@ public class AppointmentService {
     @Autowired(required = false)
     private PatientService patientService;
 
+    @Autowired(required = false)
+    private DoctorService doctorService;
+
     public void setAppointmentRepository(AppointmentRepository appointmentRepository) {
         this.appointmentRepository = appointmentRepository;
     }
@@ -65,6 +69,10 @@ public class AppointmentService {
 
     public void setPatientService(PatientService patientService) {
         this.patientService = patientService;
+    }
+
+    public void setDoctorService(DoctorService doctorService) {
+        this.doctorService = doctorService;
     }
 
     // Validate that the doctor does not already have an active (non-cancelled) appointment at the requested date and time
@@ -206,6 +214,23 @@ public class AppointmentService {
     // Retrieve all appointments from the database
     public List<Appointment> getAllAppointments() {
         return appointmentRepository.findAll();
+    }
+
+    // Retrieve appointments for a specific doctor by ID
+    public List<Appointment> getAppointmentsByDoctorId(Long doctorId) {
+        return appointmentRepository.findByDoctorId(doctorId);
+    }
+
+    // Retrieve appointments for the logged-in doctor by their username (ensures strict doctor data isolation)
+    public List<Appointment> getAppointmentsByDoctorUsername(String username) {
+        if (doctorService == null || username == null) {
+            return Collections.emptyList();
+        }
+        Doctor doctor = doctorService.getDoctorByUsername(username).orElse(null);
+        if (doctor == null) {
+            return Collections.emptyList();
+        }
+        return appointmentRepository.findByDoctorId(doctor.getId());
     }
 
     // Retrieve an appointment by ID

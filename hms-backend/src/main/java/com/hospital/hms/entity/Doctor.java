@@ -19,6 +19,11 @@ public class Doctor {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Linked User account for Doctor portal login (One-to-One relationship)
+    @OneToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    private User user;
+
     // Doctor's first name
     @Column(nullable = false)
     private String firstName;
