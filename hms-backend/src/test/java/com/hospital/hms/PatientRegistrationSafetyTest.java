@@ -67,6 +67,7 @@ public class PatientRegistrationSafetyTest {
         patientController = new PatientController();
         patientController.setPatientService(patientService);
         patientController.setAuditLogService(auditLogService);
+        patientController.setUserRepository(userRepository);
 
         when(authentication.getName()).thenReturn("admin");
     }
@@ -311,5 +312,92 @@ public class PatientRegistrationSafetyTest {
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         verify(patientRepository, never()).delete(any());
+    }
+
+    @Test
+    public void testGetMyProfile_AutoProvisionsWhenMissing() {
+        User patientUser = new User();
+        patientUser.setId(10L);
+        patientUser.setUsername("patientuser");
+        patientUser.setFullName("John Doe");
+        patientUser.setRole(Role.PATIENT);
+
+        when(authentication.getName()).thenReturn("patientuser");
+        when(patientRepository.findByUserUsername("patientuser")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("patientuser")).thenReturn(Optional.of(patientUser));
+        when(patientRepository.findByUser(patientUser)).thenReturn(Optional.empty());
+        when(patientRepository.save(any(Patient.class))).thenAnswer(inv -> {
+            Patient p = inv.getArgument(0);
+            p.setId(101L);
+            return p;
+        });
+
+        ResponseEntity<?> response = patientController.getMyProfile(authentication);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody() instanceof Patient);
+        Patient result = (Patient) response.getBody();
+        assertEquals("John", result.getFirstName());
+        assertEquals("Doe", result.getLastName());
+        assertEquals(patientUser, result.getUser());
+    }
+
+    @Test
+    public void testUpdateMyProfile_Success_SyncsUserFullName() {
+        User patientUser = new User();
+        patientUser.setId(10L);
+        patientUser.setUsername("patientuser");
+        patientUser.setFullName("Old Name");
+        patientUser.setRole(Role.PATIENT);
+
+        Patient existingPatient = new Patient();
+        existingPatient.setId(101L);
+        existingPatient.setUser(patientUser);
+        existingPatient.setFirstName("Old");
+        existingPatient.setLastName("Name");
+
+        when(authentication.getName()).thenReturn("patientuser");
+        when(patientRepository.findByUserUsername("patientuser")).thenReturn(Optional.of(existingPatient));
+        when(patientRepository.save(any(Patient.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Patient updated = new Patient();
+        updated.setFirstName("Jane");
+        updated.setLastName("Smith");
+        updated.setPhoneNumber("0779988776");
+        updated.setDateOfBirth(LocalDate.of(1995, 5, 20));
+
+        ResponseEntity<?> response = patientController.updateMyProfile(authentication, updated);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Patient result = (Patient) response.getBody();
+        assertEquals("Jane", result.getFirstName());
+        assertEquals("Smith", result.getLastName());
+        assertEquals("Jane Smith", patientUser.getFullName());
+        verify(userRepository, times(1)).save(patientUser);
+        verify(patientRepository, times(1)).save(existingPatient);
+    }
+
+    @Test
+    public void testUpdateMyProfile_DuplicateNic_ReturnsBadRequest() {
+        User patientUser = new User();
+        patientUser.setUsername("patientuser");
+
+        Patient existingPatient = new Patient();
+        existingPatient.setId(101L);
+        existingPatient.setUser(patientUser);
+        existingPatient.setNic("199011111111");
+
+        when(authentication.getName()).thenReturn("patientuser");
+        when(patientRepository.findByUserUsername("patientuser")).thenReturn(Optional.of(existingPatient));
+        when(patientRepository.existsByNicAndIdNot("200022222222", 101L)).thenReturn(true);
+
+        Patient updated = new Patient();
+        updated.setNic("200022222222");
+
+        ResponseEntity<?> response = patientController.updateMyProfile(authentication, updated);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody().toString().contains("already registered"));
     }
 }

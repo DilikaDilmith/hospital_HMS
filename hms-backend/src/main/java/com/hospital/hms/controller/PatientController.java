@@ -1,6 +1,8 @@
 package com.hospital.hms.controller;
 
 import com.hospital.hms.entity.Patient;
+import com.hospital.hms.entity.User;
+import com.hospital.hms.repository.UserRepository;
 import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.PatientService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/patients")
@@ -22,12 +25,19 @@ public class PatientController {
     @Autowired
     private AuditLogService auditLogService;
 
+    @Autowired(required = false)
+    private UserRepository userRepository;
+
     public void setAuditLogService(AuditLogService auditLogService) {
         this.auditLogService = auditLogService;
     }
 
     public void setPatientService(PatientService patientService) {
         this.patientService = patientService;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     // Endpoint to register a new patient (POST request)
@@ -80,9 +90,19 @@ public class PatientController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
         }
         String username = authentication.getName();
-        return patientService.getPatientByUsername(username)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+        Optional<Patient> opt = patientService.getPatientByUsername(username);
+        if (opt.isPresent()) {
+            return ResponseEntity.ok(opt.get());
+        }
+        // Auto-provision unique linked Patient record if user is registered as a patient
+        if (userRepository != null) {
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user != null) {
+                Patient created = patientService.createPatientForUser(user);
+                return ResponseEntity.ok(created);
+            }
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
     // Endpoint to update the logged-in patient's profile details
@@ -99,6 +119,11 @@ public class PatientController {
                 auditLogService.log(username, "PATIENT_PROFILE_UPDATE", "SUCCESS", "Patient updated personal profile");
             }
             return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            if (auditLogService != null) {
+                auditLogService.log(username, "PATIENT_PROFILE_UPDATE", "FAILED", e.getMessage());
+            }
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             if (auditLogService != null) {
                 auditLogService.log(username, "PATIENT_PROFILE_UPDATE", "FAILED", "Failed profile update: " + e.getMessage());

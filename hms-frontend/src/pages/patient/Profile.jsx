@@ -14,7 +14,13 @@ import {
     FaDownload,
     FaKey,
     FaCheckCircle,
-    FaExclamationCircle
+    FaExclamationCircle,
+    FaEdit,
+    FaSave,
+    FaTimes,
+    FaSpinner,
+    FaVenusMars,
+    FaHourglassHalf
 } from 'react-icons/fa';
 
 function PatientProfile() {
@@ -22,6 +28,20 @@ function PatientProfile() {
     const [patient, setPatient] = useState(null);
     const [documents, setDocuments] = useState([]);
     const [loadingDocs, setLoadingDocs] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [profileMsg, setProfileMsg] = useState({ type: '', text: '' });
+    const [editForm, setEditForm] = useState({
+        firstName: '',
+        lastName: '',
+        nic: '',
+        dateOfBirth: '',
+        age: '',
+        gender: 'Male',
+        phoneNumber: '',
+        address: ''
+    });
+
     const [passwordForm, setPasswordForm] = useState({
         currentPassword: '',
         newPassword: '',
@@ -44,6 +64,16 @@ function PatientProfile() {
                 const patRes = await axios.get('http://localhost:8080/api/patients/profile', config);
                 if (patRes.data) {
                     setPatient(patRes.data);
+                    setEditForm({
+                        firstName: patRes.data.firstName || '',
+                        lastName: patRes.data.lastName || '',
+                        nic: patRes.data.nic || '',
+                        dateOfBirth: patRes.data.dateOfBirth || '',
+                        age: patRes.data.age !== null && patRes.data.age !== undefined ? String(patRes.data.age) : '',
+                        gender: patRes.data.gender || 'Male',
+                        phoneNumber: patRes.data.phoneNumber || '',
+                        address: patRes.data.address || ''
+                    });
                     // Fetch documents for this patient
                     fetchDocuments(patRes.data.id);
                 }
@@ -63,6 +93,118 @@ function PatientProfile() {
         } catch (err) {
             console.error("Error loading patient documents:", err);
             setLoadingDocs(false);
+        }
+    };
+
+    const handleEditFormChange = (e) => {
+        setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        if (profileMsg.text) setProfileMsg({ type: '', text: '' });
+    };
+
+    const handleDobChange = (e) => {
+        const dobVal = e.target.value;
+        let calculatedAge = editForm.age;
+        if (dobVal) {
+            const birthDate = new Date(dobVal);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            calculatedAge = age >= 0 ? age : 0;
+        }
+        setEditForm(prev => ({
+            ...prev,
+            dateOfBirth: dobVal,
+            age: calculatedAge !== '' ? String(calculatedAge) : ''
+        }));
+        if (profileMsg.text) setProfileMsg({ type: '', text: '' });
+    };
+
+    const handleAgeChange = (e) => {
+        const ageVal = e.target.value;
+        let suggestedDob = editForm.dateOfBirth;
+        if (ageVal !== '' && !isNaN(ageVal)) {
+            const num = parseInt(ageVal, 10);
+            if (num >= 0 && num <= 130) {
+                const year = new Date().getFullYear() - num;
+                suggestedDob = `${year}-01-01`;
+            }
+        }
+        setEditForm(prev => ({
+            ...prev,
+            age: ageVal,
+            dateOfBirth: suggestedDob
+        }));
+        if (profileMsg.text) setProfileMsg({ type: '', text: '' });
+    };
+
+    const handleSaveProfile = async (e) => {
+        e.preventDefault();
+        setProfileMsg({ type: '', text: '' });
+
+        if (!editForm.firstName.trim()) {
+            setProfileMsg({ type: 'error', text: 'First name is required.' });
+            return;
+        }
+        if (editForm.firstName.trim().length < 2) {
+            setProfileMsg({ type: 'error', text: 'First name must be at least 2 characters.' });
+            return;
+        }
+        if (!editForm.lastName.trim()) {
+            setProfileMsg({ type: 'error', text: 'Last name is required.' });
+            return;
+        }
+        if (!editForm.phoneNumber.trim()) {
+            setProfileMsg({ type: 'error', text: 'Phone number is required.' });
+            return;
+        }
+        const phoneRegex = /^[0-9+\-\s()]{9,15}$/;
+        if (!phoneRegex.test(editForm.phoneNumber.trim())) {
+            setProfileMsg({ type: 'error', text: 'Please enter a valid phone number (e.g. 0771234567 or +94771234567).' });
+            return;
+        }
+        if (editForm.dateOfBirth) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (editForm.dateOfBirth > todayStr) {
+                setProfileMsg({ type: 'error', text: 'Date of birth cannot be in the future.' });
+                return;
+            }
+        }
+        if (editForm.age !== '' && (parseInt(editForm.age, 10) < 0 || parseInt(editForm.age, 10) > 130)) {
+            setProfileMsg({ type: 'error', text: 'Patient age must be between 0 and 130 years.' });
+            return;
+        }
+
+        setSavingProfile(true);
+
+        const payload = {
+            firstName: editForm.firstName.trim(),
+            lastName: editForm.lastName.trim(),
+            nic: editForm.nic && editForm.nic.trim() !== '' ? editForm.nic.trim() : null,
+            dateOfBirth: editForm.dateOfBirth || null,
+            age: editForm.age !== '' ? parseInt(editForm.age, 10) : null,
+            gender: editForm.gender,
+            phoneNumber: editForm.phoneNumber.trim(),
+            address: editForm.address ? editForm.address.trim() : ''
+        };
+
+        try {
+            const res = await axios.put('http://localhost:8080/api/patients/profile', payload, config);
+            setPatient(res.data);
+            setUser(prev => ({ ...prev, fullName: `${res.data.firstName} ${res.data.lastName}` }));
+            setProfileMsg({ type: 'success', text: 'Your profile details were updated successfully!' });
+            setIsEditing(false);
+        } catch (err) {
+            console.error("Error updating profile:", err);
+            const errMsg =
+                (typeof err.response?.data === 'string' ? err.response.data : null) ||
+                err.response?.data?.message ||
+                "Failed to update profile. Please try again.";
+            setProfileMsg({ type: 'error', text: errMsg });
+        } finally {
+            setSavingProfile(false);
         }
     };
 
@@ -154,36 +296,221 @@ function PatientProfile() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="bg-cyan-600 h-32"></div>
                 <div className="px-8 pb-8">
-                    <div className="relative flex justify-center md:justify-start -mt-12 mb-4">
-                        <div className="bg-white p-2 rounded-full">
+                    <div className="relative flex justify-between items-end -mt-12 mb-4">
+                        <div className="bg-white p-2 rounded-full shadow-sm">
                             <FaUser className="text-gray-300" size={80} />
                         </div>
+                        {patient && !isEditing && (
+                            <button
+                                onClick={() => {
+                                    setIsEditing(true);
+                                    setProfileMsg({ type: '', text: '' });
+                                    setEditForm({
+                                        firstName: patient.firstName || '',
+                                        lastName: patient.lastName || '',
+                                        nic: patient.nic || '',
+                                        dateOfBirth: patient.dateOfBirth || '',
+                                        age: patient.age !== null && patient.age !== undefined ? String(patient.age) : '',
+                                        gender: patient.gender || 'Male',
+                                        phoneNumber: patient.phoneNumber || '',
+                                        address: patient.address || ''
+                                    });
+                                }}
+                                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                            >
+                                <FaEdit size={13} /> Edit Profile
+                            </button>
+                        )}
                     </div>
+
                     <h3 className="text-2xl font-bold text-gray-800">{user.fullName}</h3>
                     <p className="text-cyan-600 font-semibold flex items-center gap-2 mt-1">
-                        Patient
+                        Patient Portal Profile
                     </p>
 
-                    {patient ? (
-                        <>
-                            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {profileMsg.text && (
+                        <div className={`mt-4 p-3 rounded-xl flex items-center gap-2 text-xs font-medium ${profileMsg.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+                            {profileMsg.type === 'error' ? <FaExclamationCircle size={14} /> : <FaCheckCircle size={14} />}
+                            <span>{profileMsg.text}</span>
+                        </div>
+                    )}
+
+                    {isEditing ? (
+                        <form onSubmit={handleSaveProfile} className="mt-6 space-y-4 bg-gray-50/70 p-5 rounded-2xl border border-gray-200">
+                            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-2">
+                                <FaEdit className="text-cyan-600" /> Edit Personal Information
+                            </h4>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">First Name *</label>
+                                    <input
+                                        type="text"
+                                        name="firstName"
+                                        value={editForm.firstName}
+                                        onChange={handleEditFormChange}
+                                        required
+                                        className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Last Name *</label>
+                                    <input
+                                        type="text"
+                                        name="lastName"
+                                        value={editForm.lastName}
+                                        onChange={handleEditFormChange}
+                                        required
+                                        className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">NIC (Optional)</label>
+                                    <input
+                                        type="text"
+                                        name="nic"
+                                        value={editForm.nic}
+                                        onChange={handleEditFormChange}
+                                        placeholder="e.g. 200012345678 or leave empty"
+                                        className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Gender *</label>
+                                    <select
+                                        name="gender"
+                                        value={editForm.gender}
+                                        onChange={handleEditFormChange}
+                                        className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white"
+                                    >
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Date of Birth</label>
+                                    <input
+                                        type="date"
+                                        name="dateOfBirth"
+                                        value={editForm.dateOfBirth}
+                                        onChange={handleDobChange}
+                                        max={new Date().toISOString().split('T')[0]}
+                                        className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Patient Age (Years)</label>
+                                    <input
+                                        type="number"
+                                        name="age"
+                                        value={editForm.age}
+                                        onChange={handleAgeChange}
+                                        min="0"
+                                        max="130"
+                                        placeholder="Auto-calculated from DOB or enter directly"
+                                        className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Phone Number *</label>
+                                    <input
+                                        type="text"
+                                        name="phoneNumber"
+                                        value={editForm.phoneNumber}
+                                        onChange={handleEditFormChange}
+                                        required
+                                        placeholder="0771234567"
+                                        className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Residential Address</label>
+                                    <input
+                                        type="text"
+                                        name="address"
+                                        value={editForm.address}
+                                        onChange={handleEditFormChange}
+                                        placeholder="No 12, Main Street, Colombo"
+                                        className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        setProfileMsg({ type: '', text: '' });
+                                    }}
+                                    disabled={savingProfile}
+                                    className="px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition"
+                                >
+                                    <FaTimes size={12} /> Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={savingProfile}
+                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                                >
+                                    {savingProfile ? <FaSpinner className="animate-spin" size={13} /> : <FaSave size={13} />}
+                                    {savingProfile ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    ) : patient ? (
+                        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-gray-50 p-4 rounded-xl flex items-center gap-3">
                                 <FaIdCard className="text-gray-400" />
-                                <div><p className="text-xs text-gray-500">NIC</p><p className="text-gray-800 font-medium">{patient.nic}</p></div>
+                                <div>
+                                    <p className="text-xs text-gray-500">NIC</p>
+                                    <p className="text-gray-800 font-medium">
+                                        {patient.nic ? patient.nic : <span className="text-gray-400 text-xs italic">No NIC on file</span>}
+                                    </p>
+                                </div>
                             </div>
                             <div className="bg-gray-50 p-4 rounded-xl flex items-center gap-3">
                                 <FaBirthdayCake className="text-gray-400" />
-                                <div><p className="text-xs text-gray-500">Date of Birth</p><p className="text-gray-800 font-medium">{patient.dateOfBirth}</p></div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Date of Birth & Age</p>
+                                    <p className="text-gray-800 font-medium">
+                                        {patient.dateOfBirth ? patient.dateOfBirth : 'N/A'}
+                                        {patient.age !== null && patient.age !== undefined && (
+                                            <span className="ml-1.5 text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full font-semibold">
+                                                {patient.age} yrs
+                                            </span>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-xl flex items-center gap-3">
+                                <FaVenusMars className="text-gray-400" />
+                                <div>
+                                    <p className="text-xs text-gray-500">Gender</p>
+                                    <p className="text-gray-800 font-medium">{patient.gender || 'Not specified'}</p>
+                                </div>
                             </div>
                             <div className="bg-gray-50 p-4 rounded-xl flex items-center gap-3">
                                 <FaPhone className="text-gray-400" />
-                                <div><p className="text-xs text-gray-500">Phone</p><p className="text-gray-800 font-medium">{patient.phoneNumber}</p></div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Phone</p>
+                                    <p className="text-gray-800 font-medium">{patient.phoneNumber || 'N/A'}</p>
+                                </div>
                             </div>
                             <div className="bg-gray-50 p-4 rounded-xl flex items-center gap-3 md:col-span-2">
                                 <FaMapMarkerAlt className="text-gray-400" />
-                                <div><p className="text-xs text-gray-500">Address</p><p className="text-gray-800 font-medium">{patient.address}</p></div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Residential Address</p>
+                                    <p className="text-gray-800 font-medium">{patient.address || 'N/A'}</p>
+                                </div>
                             </div>
                         </div>
+                    ) : (
+                        <div className="mt-6 p-4 bg-gray-50 rounded-xl text-center text-xs text-gray-500">
+                            No patient medical profile linked yet.
+                        </div>
+                    )}
 
                         {/* My Documents Section */}
                         <div className="mt-8 pt-6 border-t border-gray-100">
@@ -234,12 +561,6 @@ function PatientProfile() {
                                 </p>
                             )}
                         </div>
-                        </>
-                    ) : (
-                        <div className="mt-6 bg-yellow-50 text-yellow-700 p-4 rounded-lg">
-                            Your detailed medical profile (NIC, DOB, etc.) has not been created by the reception yet.
-                        </div>
-                    )}
                 </div>
             </div>
 

@@ -158,8 +158,10 @@ public class PatientService {
 
         // Safe initial defaults
         patient.setPhoneNumber("");
-        patient.setGender("Not Specified");
+        patient.setGender("Male");
         patient.setDateOfBirth(LocalDate.of(2000, 1, 1));
+        patient.setAge(java.time.Period.between(patient.getDateOfBirth(), LocalDate.now()).getYears());
+        patient.setNic(null);
         patient.setAddress("");
 
         return patientRepository.save(patient);
@@ -234,6 +236,13 @@ public class PatientService {
         }
         if (updatedData.getAddress() != null) {
             patient.setAddress(updatedData.getAddress().trim());
+        }
+
+        // Synchronize linked User account's full name
+        if (patient.getUser() != null) {
+            String newFullName = patient.getFirstName() + " " + patient.getLastName();
+            patient.getUser().setFullName(newFullName.trim());
+            userRepository.save(patient.getUser());
         }
 
         return patientRepository.save(patient);
