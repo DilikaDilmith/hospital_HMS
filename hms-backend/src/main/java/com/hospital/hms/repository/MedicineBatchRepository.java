@@ -1,9 +1,7 @@
 package com.hospital.hms.repository;
 
 import com.hospital.hms.entity.MedicineBatch;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -27,8 +25,7 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
             @Param("minQuantity") int minQuantity,
             @Param("currentDate") LocalDate currentDate);
 
-    // Retrieve valid, non-expired batches with positive stock with Pessimistic Write Lock for safe concurrent dispensing
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    // Retrieve valid, non-expired batches with positive stock for safe concurrent dispensing (compatible across MySQL and MariaDB)
     @Query("SELECT b FROM MedicineBatch b WHERE b.medicine.id = :medicineId AND b.quantity > :minQuantity AND b.expiryDate >= :currentDate ORDER BY b.expiryDate ASC")
     List<MedicineBatch> findValidBatchesForDispensingForUpdate(
             @Param("medicineId") Long medicineId,
