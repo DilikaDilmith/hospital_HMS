@@ -8,6 +8,7 @@ function AddPatientModal({ onClose, onPatientAdded }) {
         lastName: '',
         nic: '',
         dateOfBirth: '',
+        age: '',
         gender: 'Male',
         phoneNumber: '',
         address: ''
@@ -21,9 +22,89 @@ function AddPatientModal({ onClose, onPatientAdded }) {
         if (error) setError('');
     };
 
+    // Calculate age automatically when DOB changes
+    const handleDobChange = (e) => {
+        const dobVal = e.target.value;
+        let calculatedAge = newPatient.age;
+        if (dobVal) {
+            const birthDate = new Date(dobVal);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            calculatedAge = age >= 0 ? age : 0;
+        }
+        setNewPatient(prev => ({
+            ...prev,
+            dateOfBirth: dobVal,
+            age: calculatedAge !== '' ? String(calculatedAge) : ''
+        }));
+        if (error) setError('');
+    };
+
+    // Auto-suggest DOB when Age is entered directly
+    const handleAgeChange = (e) => {
+        const ageVal = e.target.value;
+        let suggestedDob = newPatient.dateOfBirth;
+        if (ageVal !== '' && !isNaN(ageVal)) {
+            const num = parseInt(ageVal, 10);
+            if (num >= 0 && num <= 130) {
+                const year = new Date().getFullYear() - num;
+                suggestedDob = `${year}-01-01`;
+            }
+        }
+        setNewPatient(prev => ({
+            ...prev,
+            age: ageVal,
+            dateOfBirth: suggestedDob
+        }));
+        if (error) setError('');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+
+        // Proper Client-side validation
+        if (!newPatient.firstName.trim()) {
+            setError('First name is required.');
+            return;
+        }
+        if (newPatient.firstName.trim().length < 2) {
+            setError('First name must be at least 2 characters.');
+            return;
+        }
+        if (!newPatient.lastName.trim()) {
+            setError('Last name is required.');
+            return;
+        }
+        if (!newPatient.phoneNumber.trim()) {
+            setError('Phone number is required.');
+            return;
+        }
+        const phoneRegex = /^[0-9+\-\s()]{9,15}$/;
+        if (!phoneRegex.test(newPatient.phoneNumber.trim())) {
+            setError('Please enter a valid phone number (e.g. 0771234567 or +94771234567).');
+            return;
+        }
+        if (newPatient.dateOfBirth) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (newPatient.dateOfBirth > todayStr) {
+                setError('Date of birth cannot be in the future.');
+                return;
+            }
+        }
+        if (newPatient.age !== '' && (parseInt(newPatient.age, 10) < 0 || parseInt(newPatient.age, 10) > 130)) {
+            setError('Please enter a valid patient age between 0 and 130 years.');
+            return;
+        }
+        if (!newPatient.dateOfBirth && newPatient.age === '') {
+            setError('Please provide either Date of Birth or Patient Age.');
+            return;
+        }
+
         setIsSubmitting(true);
 
         const token = localStorage.getItem('token');
@@ -43,8 +124,10 @@ function AddPatientModal({ onClose, onPatientAdded }) {
         const payload = {
             firstName: newPatient.firstName.trim(),
             lastName: newPatient.lastName.trim(),
+            // Safe null normalization: patients without NIC have null (not empty string)
             nic: newPatient.nic && newPatient.nic.trim() !== '' ? newPatient.nic.trim() : null,
-            dateOfBirth: newPatient.dateOfBirth,
+            dateOfBirth: newPatient.dateOfBirth || null,
+            age: newPatient.age !== '' ? parseInt(newPatient.age, 10) : null,
             gender: newPatient.gender,
             phoneNumber: newPatient.phoneNumber.trim(),
             address: newPatient.address ? newPatient.address.trim() : ''
@@ -75,6 +158,8 @@ function AddPatientModal({ onClose, onPatientAdded }) {
             setError(errMsg);
         }
     };
+
+    const maxDate = new Date().toISOString().split('T')[0];
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -134,21 +219,10 @@ function AddPatientModal({ onClose, onPatientAdded }) {
                                 name="nic" 
                                 value={newPatient.nic} 
                                 onChange={handleChange} 
-                                placeholder="e.g. 199512345678"
+                                placeholder="e.g. 199512345678 or 951234567V"
                                 className="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition" 
                             />
-                            <p className="text-[11px] text-gray-400 mt-1">Leave blank if unavailable. Must be unique if provided.</p>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Date of Birth *</label>
-                            <input 
-                                type="date" 
-                                name="dateOfBirth" 
-                                value={newPatient.dateOfBirth} 
-                                onChange={handleChange} 
-                                required
-                                className="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition" 
-                            />
+                            <p className="text-[11px] text-gray-400 mt-1">Leave blank for children, infants, or patients without an NIC.</p>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Gender *</label>
@@ -164,6 +238,32 @@ function AddPatientModal({ onClose, onPatientAdded }) {
                             </select>
                         </div>
                         <div>
+                            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Date of Birth</label>
+                            <input 
+                                type="date" 
+                                name="dateOfBirth" 
+                                max={maxDate}
+                                value={newPatient.dateOfBirth} 
+                                onChange={handleDobChange} 
+                                className="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition" 
+                            />
+                            <p className="text-[11px] text-gray-400 mt-1">Auto-calculates patient age.</p>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Patient Age (Years)</label>
+                            <input 
+                                type="number" 
+                                name="age" 
+                                min="0" 
+                                max="130"
+                                value={newPatient.age} 
+                                onChange={handleAgeChange} 
+                                placeholder="e.g. 28"
+                                className="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition" 
+                            />
+                            <p className="text-[11px] text-gray-400 mt-1">Enter age directly if DOB is unavailable.</p>
+                        </div>
+                        <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Phone Number *</label>
                             <input 
                                 type="text" 

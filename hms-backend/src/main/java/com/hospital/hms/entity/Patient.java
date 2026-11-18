@@ -41,6 +41,10 @@ public class Patient {
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate dateOfBirth;
 
+    // Patient's age in years (can be entered directly or computed from date of birth)
+    @Column(name = "age")
+    private Integer age;
+
     // Patient's gender (e.g., Male, Female, Other)
     private String gender;
 
@@ -54,9 +58,22 @@ public class Patient {
     @Column(nullable = false, updatable = false)
     private LocalDateTime registeredAt;
 
-    // Automatically set the registration timestamp before saving to the database
+    // Automatically set timestamp, calculate age from DOB or DOB from age, and sanitize empty NIC to null
     @PrePersist
-    protected void onCreate() {
-        this.registeredAt = LocalDateTime.now();
+    @PreUpdate
+    protected void syncPatientData() {
+        if (this.registeredAt == null) {
+            this.registeredAt = LocalDateTime.now();
+        }
+        if (this.dateOfBirth != null) {
+            this.age = java.time.Period.between(this.dateOfBirth, LocalDate.now()).getYears();
+        } else if (this.age != null && this.age >= 0) {
+            this.dateOfBirth = LocalDate.now().minusYears(this.age).withMonth(1).withDayOfMonth(1);
+        }
+        if (this.nic != null && this.nic.trim().isEmpty()) {
+            this.nic = null;
+        } else if (this.nic != null) {
+            this.nic = this.nic.trim();
+        }
     }
 }

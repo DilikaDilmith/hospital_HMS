@@ -151,6 +151,7 @@ function Patients() {
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">ID</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Patient Name</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">NIC</th>
+                                <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Age</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Date of Birth</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Gender</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Phone</th>
@@ -161,7 +162,7 @@ function Patients() {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="8" className="p-12 text-center text-gray-500">
+                                    <td colSpan="9" className="p-12 text-center text-gray-500">
                                         <FaSpinner className="animate-spin inline mr-2 text-blue-600" size={20} />
                                         Loading patients from database...
                                     </td>
@@ -173,10 +174,25 @@ function Patients() {
                                         <td className="p-4 text-sm text-gray-900 font-semibold">
                                             {patient.firstName} {patient.lastName}
                                         </td>
-                                        <td className="p-4 text-xs text-gray-600 font-mono">
-                                            {patient.nic || <span className="text-gray-400 italic">None</span>}
+                                        <td className="p-4 text-xs font-mono">
+                                            {patient.nic ? (
+                                                <span className="text-gray-700">{patient.nic}</span>
+                                            ) : (
+                                                <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded text-[10px] font-semibold">
+                                                    No NIC
+                                                </span>
+                                            )}
                                         </td>
-                                        <td className="p-4 text-xs text-gray-600">{patient.dateOfBirth}</td>
+                                        <td className="p-4 text-xs font-semibold text-gray-800">
+                                            {patient.age !== null && patient.age !== undefined ? (
+                                                <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                                                    {patient.age} yrs
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 italic">-</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-xs text-gray-600">{patient.dateOfBirth || '-'}</td>
                                         <td className="p-4 text-xs">
                                             <span className={`px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
                                                 patient.gender === 'Male' ? 'bg-blue-100 text-blue-800' :
@@ -202,7 +218,7 @@ function Patients() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="8" className="p-12 text-center text-gray-500">
+                                    <td colSpan="9" className="p-12 text-center text-gray-500">
                                         {searchQuery ? (
                                             <div>
                                                 <p className="font-semibold text-gray-700">No matching patients found.</p>

@@ -24,14 +24,51 @@ public class PatientService {
     // Register a new patient in the system
     @Transactional
     public Patient registerPatient(Patient patient) {
+        // Validate names
         if (patient.getFirstName() == null || patient.getFirstName().trim().isEmpty()) {
             throw new IllegalArgumentException("First name is required.");
         }
         if (patient.getLastName() == null || patient.getLastName().trim().isEmpty()) {
             throw new IllegalArgumentException("Last name is required.");
         }
+        patient.setFirstName(patient.getFirstName().trim());
+        patient.setLastName(patient.getLastName().trim());
 
-        // Sanitize and validate NIC uniqueness
+        // Validate Date of Birth and Age
+        if (patient.getDateOfBirth() != null) {
+            if (patient.getDateOfBirth().isAfter(LocalDate.now())) {
+                throw new IllegalArgumentException("Date of birth cannot be in the future.");
+            }
+            int calculatedAge = java.time.Period.between(patient.getDateOfBirth(), LocalDate.now()).getYears();
+            if (calculatedAge > 130) {
+                throw new IllegalArgumentException("Date of birth indicates an age over 130 years. Please check the birth year.");
+            }
+            patient.setAge(calculatedAge);
+        } else if (patient.getAge() != null) {
+            if (patient.getAge() < 0 || patient.getAge() > 130) {
+                throw new IllegalArgumentException("Patient age must be between 0 and 130 years.");
+            }
+            patient.setDateOfBirth(LocalDate.now().minusYears(patient.getAge()).withMonth(1).withDayOfMonth(1));
+        }
+
+        // Validate Phone Number
+        if (patient.getPhoneNumber() != null && !patient.getPhoneNumber().trim().isEmpty()) {
+            patient.setPhoneNumber(patient.getPhoneNumber().trim());
+        }
+
+        // Validate Gender
+        if (patient.getGender() != null && !patient.getGender().trim().isEmpty()) {
+            patient.setGender(patient.getGender().trim());
+        } else {
+            patient.setGender("Other");
+        }
+
+        // Address
+        if (patient.getAddress() != null) {
+            patient.setAddress(patient.getAddress().trim());
+        }
+
+        // Sanitize and validate NIC uniqueness (optional - some patients don't have NIC)
         if (patient.getNic() != null && !patient.getNic().trim().isEmpty()) {
             String cleanNic = patient.getNic().trim();
             if (patientRepository.existsByNic(cleanNic)) {
@@ -39,7 +76,7 @@ public class PatientService {
             }
             patient.setNic(cleanNic);
         } else {
-            patient.setNic(null);
+            patient.setNic(null); // CRUCIAL: must be null so multiple patients without NIC do not violate unique key
         }
 
         // Link existing user if provided
@@ -129,7 +166,17 @@ public class PatientService {
             }
         }
         if (updatedData.getDateOfBirth() != null) {
+            if (updatedData.getDateOfBirth().isAfter(LocalDate.now())) {
+                throw new IllegalArgumentException("Date of birth cannot be in the future.");
+            }
             patient.setDateOfBirth(updatedData.getDateOfBirth());
+            patient.setAge(java.time.Period.between(updatedData.getDateOfBirth(), LocalDate.now()).getYears());
+        } else if (updatedData.getAge() != null) {
+            if (updatedData.getAge() < 0 || updatedData.getAge() > 130) {
+                throw new IllegalArgumentException("Patient age must be between 0 and 130 years.");
+            }
+            patient.setAge(updatedData.getAge());
+            patient.setDateOfBirth(LocalDate.now().minusYears(updatedData.getAge()).withMonth(1).withDayOfMonth(1));
         }
         if (updatedData.getGender() != null) {
             patient.setGender(updatedData.getGender());
@@ -163,7 +210,19 @@ public class PatientService {
                 patient.setNic(null);
             }
         }
-        if (updatedData.getDateOfBirth() != null) patient.setDateOfBirth(updatedData.getDateOfBirth());
+        if (updatedData.getDateOfBirth() != null) {
+            if (updatedData.getDateOfBirth().isAfter(LocalDate.now())) {
+                throw new IllegalArgumentException("Date of birth cannot be in the future.");
+            }
+            patient.setDateOfBirth(updatedData.getDateOfBirth());
+            patient.setAge(java.time.Period.between(updatedData.getDateOfBirth(), LocalDate.now()).getYears());
+        } else if (updatedData.getAge() != null) {
+            if (updatedData.getAge() < 0 || updatedData.getAge() > 130) {
+                throw new IllegalArgumentException("Patient age must be between 0 and 130 years.");
+            }
+            patient.setAge(updatedData.getAge());
+            patient.setDateOfBirth(LocalDate.now().minusYears(updatedData.getAge()).withMonth(1).withDayOfMonth(1));
+        }
         if (updatedData.getGender() != null) patient.setGender(updatedData.getGender());
         if (updatedData.getPhoneNumber() != null) patient.setPhoneNumber(updatedData.getPhoneNumber().trim());
         if (updatedData.getAddress() != null) patient.setAddress(updatedData.getAddress().trim());
