@@ -59,7 +59,23 @@ function PatientDashboard() {
             if (apptRes.status === 'fulfilled' && Array.isArray(apptRes.value.data)) setAppointments(apptRes.value.data);
             if (recRes.status === 'fulfilled' && Array.isArray(recRes.value.data)) setMedicalRecords(recRes.value.data);
             if (labRes.status === 'fulfilled' && Array.isArray(labRes.value.data)) setLabTests(labRes.value.data);
-            if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data)) setDocuments(docRes.value.data);
+
+            if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data)) {
+                setDocuments(docRes.value.data);
+            } else if (docRes.status === 'rejected' && (docRes.reason?.response?.status === 405 || docRes.reason?.response?.status === 404)) {
+                // Fallback for running servers: fetch documents using the patient's linked profile ID
+                try {
+                    const profileRes = await axios.get('http://localhost:8080/api/patients/profile', config);
+                    if (profileRes.data && profileRes.data.id) {
+                        const fallbackDocs = await axios.get(`http://localhost:8080/api/patients/${profileRes.data.id}/documents`, config);
+                        if (Array.isArray(fallbackDocs.data)) {
+                            setDocuments(fallbackDocs.data);
+                        }
+                    }
+                } catch (fallbackErr) {
+                    console.warn("Dashboard fallback documents fetch error:", fallbackErr);
+                }
+            }
         } catch (error) {
             console.error("Error fetching patient dashboard data:", error);
         } finally {

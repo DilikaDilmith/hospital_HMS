@@ -30,12 +30,40 @@ function PatientDocuments() {
         setLoading(true);
         setError('');
         try {
-            // Priority endpoint: /api/documents/my (strictly returns only caller's documents)
-            const response = await axios.get('http://localhost:8080/api/documents/my', config);
-            setDocuments(Array.isArray(response.data) ? response.data : []);
+            let docList = [];
+            let fetched = false;
+
+            // 1. Priority endpoint: /api/documents/my (strictly returns only caller's documents)
+            try {
+                const response = await axios.get('http://localhost:8080/api/documents/my', config);
+                docList = Array.isArray(response.data) ? response.data : [];
+                fetched = true;
+            } catch (err) {
+                // If 405 Method Not Allowed or 404, fallback to patient profile document route
+                if (err.response?.status !== 405 && err.response?.status !== 404) {
+                    throw err;
+                }
+            }
+
+            // 2. Resilient fallback: lookup caller's profile and load documents for their own ID
+            if (!fetched) {
+                try {
+                    const profileRes = await axios.get('http://localhost:8080/api/patients/profile', config);
+                    if (profileRes.data && profileRes.data.id) {
+                        const docsRes = await axios.get(`http://localhost:8080/api/patients/${profileRes.data.id}/documents`, config);
+                        docList = Array.isArray(docsRes.data) ? docsRes.data : [];
+                        fetched = true;
+                    }
+                } catch (fallbackErr) {
+                    console.warn("Fallback patient document lookup error:", fallbackErr);
+                }
+            }
+
+            setDocuments(docList);
         } catch (err) {
             console.error("Error fetching patient documents:", err);
-            setError("Failed to load medical documents. Please ensure the backend is running.");
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null);
+            setError(msg || "Failed to load medical documents. Please ensure the backend server is running.");
             setDocuments([]);
         } finally {
             setLoading(false);

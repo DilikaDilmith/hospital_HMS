@@ -81,8 +81,8 @@ public class PatientDocumentController {
     /**
      * List all documents for the authenticated patient (Patients view only their own documents)
      */
-    @GetMapping({"/api/documents/my", "/api/patient-documents/my"})
-    @PreAuthorize("hasAnyAuthority('PATIENT', 'ROLE_PATIENT')")
+    @GetMapping({"/api/documents/my", "/api/patient-documents/my", "/api/documents"})
+    @PreAuthorize("hasAnyAuthority('PATIENT', 'ROLE_PATIENT', 'ADMIN', 'ROLE_ADMIN')")
     public List<PatientDocument> getMyDocuments(Authentication authentication) {
         if (authentication == null) {
             return java.util.Collections.emptyList();
