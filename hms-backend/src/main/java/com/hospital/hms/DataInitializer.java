@@ -198,6 +198,26 @@ public class DataInitializer {
                 }
             );
 
+            // 3.4. Ensure default "accountant1" user exists and is APPROVED
+            userRepository.findByUsername("accountant1").ifPresentOrElse(
+                acc -> {
+                    if (acc.getStatus() == null || !"APPROVED".equals(acc.getStatus())) {
+                        acc.setStatus("APPROVED");
+                        userRepository.save(acc);
+                    }
+                },
+                () -> {
+                    User accountant = new User();
+                    accountant.setUsername("accountant1");
+                    accountant.setPassword(passwordEncoder.encode("account123"));
+                    accountant.setFullName("Kavinda Dias (Accountant)");
+                    accountant.setRole(Role.ACCOUNTANT);
+                    accountant.setStatus("APPROVED");
+                    userRepository.save(accountant);
+                    System.out.println("✅ Default Accountant User Created!");
+                }
+            );
+
             // 4. Seed initial sample patients if none exist
             if (patientRepository.count() == 0) {
                 Patient p1 = new Patient();
@@ -466,6 +486,26 @@ public class DataInitializer {
                     att.setCheckInTime(LocalTime.of(8, 45, 0));
                     att.setStatus("PRESENT");
                     att.setNotes("Pathology diagnostic lab lead");
+                    attendanceRepository.save(att);
+                });
+
+                userRepository.findByUsername("accountant1").ifPresent(accUser -> {
+                    Employee e = new Employee();
+                    e.setUser(accUser);
+                    e.setDesignation("Chief Accountant & Financial Controller");
+                    e.setDepartment("Finance & Accounts");
+                    e.setContactNumber("078-9900112");
+                    e.setSalary(95000.0);
+                    e.setStatus("ACTIVE");
+                    e.setJoinedDate(LocalDate.now().minusMonths(12));
+                    Employee savedAccEmp = employeeRepository.save(e);
+
+                    Attendance att = new Attendance();
+                    att.setEmployee(savedAccEmp);
+                    att.setDate(LocalDate.now());
+                    att.setCheckInTime(LocalTime.of(8, 20, 0));
+                    att.setStatus("PRESENT");
+                    att.setNotes("Finance and billing station supervisor");
                     attendanceRepository.save(att);
                 });
 
