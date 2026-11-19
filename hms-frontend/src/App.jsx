@@ -41,6 +41,10 @@ import MedicineBatches from './pages/pharmacist/MedicineBatches';
 // Receptionist Pages
 import ReceptionistDashboard from './pages/receptionist/Dashboard';
 
+// Accountant Pages
+import AccountantDashboard from './pages/accountant/Dashboard';
+import AccountantBilling from './pages/accountant/Billing';
+
 // Patient Pages
 import PatientDashboard from './pages/patient/Dashboard';   
 import BookAppointment from './pages/patient/BookAppointment';
@@ -100,7 +104,8 @@ function App() {
           <Route path="/receptionist/inpatient" element={<InpatientManagement />} />
 
           {/* Accountant Specific Routes */}
-          <Route path="/accountant/billing" element={<Billing />} />
+          <Route path="/accountant/dashboard" element={<AccountantDashboard />} />
+          <Route path="/accountant/billing" element={<AccountantBilling />} />
  
           {/* Patient Specific Routes */}
           <Route path="/patient/dashboard" element={<PatientDashboard />} />
