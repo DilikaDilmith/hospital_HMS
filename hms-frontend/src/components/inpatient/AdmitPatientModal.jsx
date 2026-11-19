@@ -33,7 +33,15 @@ function AdmitPatientModal({ onClose, onPatientAdmitted }) {
                 setLoadingData(false);
             } catch (err) {
                 console.error("Error loading admission form data:", err);
-                setError("Failed to load patients, doctors, or available beds.");
+                const status = err.response?.status;
+                const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || err.message;
+                if (status === 403) {
+                    setError(`Permission Denied (403): Your account does not have permission to load admission data (${msg}). Please restart the backend server or log in with an authorized account.`);
+                } else if (status === 401) {
+                    setError("Session expired (401). Please log in again.");
+                } else {
+                    setError(`Failed to load patients, doctors, or available beds: ${msg || "Server unreachable. Please ensure the backend is running."}`);
+                }
                 setLoadingData(false);
             }
         };

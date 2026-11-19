@@ -17,6 +17,7 @@ import {
   FaUserTie,
   FaNotesMedical,
   FaHistory,
+  FaFolderOpen,
 } from "react-icons/fa";
 import { useNavigate, Outlet, Link, useLocation } from "react-router-dom";
 
@@ -205,6 +206,9 @@ function Layout() {
               </Link>
               <Link to="/patient/lab-results" className={linkClass("/patient/lab-results")}>
                 <FaFlask className="text-purple-400" /> Lab Results
+              </Link>
+              <Link to="/patient/documents" className={linkClass("/patient/documents")}>
+                <FaFolderOpen className="text-amber-400" /> Medical Documents
               </Link>
             </>
           )}

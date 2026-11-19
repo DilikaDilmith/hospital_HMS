@@ -79,6 +79,18 @@ public class PatientDocumentController {
     }
 
     /**
+     * List all documents for the authenticated patient (Patients view only their own documents)
+     */
+    @GetMapping({"/api/documents/my", "/api/patient-documents/my"})
+    @PreAuthorize("hasAnyAuthority('PATIENT', 'ROLE_PATIENT')")
+    public List<PatientDocument> getMyDocuments(Authentication authentication) {
+        if (authentication == null) {
+            return java.util.Collections.emptyList();
+        }
+        return patientDocumentService.getDocumentsByPatientUsername(authentication.getName());
+    }
+
+    /**
      * View document inline in browser (e.g. PDF viewer or Image display)
      */
     @GetMapping("/api/documents/{id}/view")

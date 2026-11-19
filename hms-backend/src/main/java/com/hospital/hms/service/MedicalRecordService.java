@@ -1,13 +1,19 @@
 package com.hospital.hms.service;
 
 import com.hospital.hms.entity.MedicalRecord;
+import com.hospital.hms.entity.Patient;
+import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.MedicalRecordRepository;
+import com.hospital.hms.repository.PatientRepository;
+import com.hospital.hms.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class MedicalRecordService {
@@ -20,6 +26,24 @@ public class MedicalRecordService {
 
     @Autowired
     private InvoiceService invoiceService;
+
+    @Autowired(required = false)
+    private PatientRepository patientRepository;
+
+    @Autowired(required = false)
+    private UserRepository userRepository;
+
+    public void setMedicalRecordRepository(MedicalRecordRepository medicalRecordRepository) {
+        this.medicalRecordRepository = medicalRecordRepository;
+    }
+
+    public void setPatientRepository(PatientRepository patientRepository) {
+        this.patientRepository = patientRepository;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     // Create a new medical record
     public MedicalRecord createRecord(MedicalRecord record) {
@@ -37,7 +61,29 @@ public class MedicalRecordService {
 
     // Get medical records for a patient by username (scoped to authenticated user)
     public List<MedicalRecord> getRecordsByPatientUsername(String username) {
-        return medicalRecordRepository.findByPatientUserUsernameOrderByRecordDateDesc(username);
+        if (username == null || username.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        String cleanUsername = username.trim();
+        List<MedicalRecord> list = medicalRecordRepository.findByPatientUserUsernameOrderByRecordDateDesc(cleanUsername);
+        if (!list.isEmpty()) {
+            return list;
+        }
+
+        if (patientRepository != null) {
+            Optional<Patient> p = patientRepository.findByUserUsername(cleanUsername);
+            if (p.isEmpty() && userRepository != null) {
+                User u = userRepository.findByUsername(cleanUsername).orElse(null);
+                if (u != null) {
+                    p = patientRepository.findByUserId(u.getId());
+                }
+            }
+            if (p.isPresent()) {
+                return medicalRecordRepository.findByPatientIdOrderByRecordDateDesc(p.get().getId());
+            }
+        }
+
+        return Collections.emptyList();
     }
 
     // Get medical records for a specific patient ID

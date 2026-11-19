@@ -45,9 +45,10 @@ public class AdmissionService {
             throw new IllegalArgumentException("An attending doctor must be assigned for inpatient admission.");
         }
 
-        // Acquire pessimistic write lock on the bed to prevent concurrent assignments
-        Bed bed = bedRepository.findByIdForUpdate(admission.getBed().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Bed not found with ID: " + admission.getBed().getId()));
+        Long requestedBedId = admission.getBed().getId();
+        Bed bed = bedRepository.findById(requestedBedId)
+                .orElseGet(() -> bedRepository.findByIdForUpdate(requestedBedId)
+                        .orElseThrow(() -> new IllegalArgumentException("Bed not found with ID: " + requestedBedId)));
 
         if (bed.getStatus() != BedStatus.AVAILABLE) {
             throw new IllegalStateException("Bed " + bed.getBedNumber() + " is currently " + bed.getStatus() + " and cannot be assigned.");
@@ -113,7 +114,10 @@ public class AdmissionService {
 
         Bed bed = admission.getBed();
         if (bed != null && bed.getId() != null) {
-            bed = bedRepository.findByIdForUpdate(bed.getId()).orElse(bed);
+            Long bedId = bed.getId();
+            Bed currentBed = bed;
+            bed = bedRepository.findById(bedId)
+                    .orElseGet(() -> bedRepository.findByIdForUpdate(bedId).orElse(currentBed));
             bed.setStatus(BedStatus.AVAILABLE);
             bedRepository.save(bed);
             admission.setBed(bed);

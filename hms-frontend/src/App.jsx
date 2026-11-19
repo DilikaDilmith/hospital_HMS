@@ -46,6 +46,7 @@ import PatientDashboard from './pages/patient/Dashboard';
 import BookAppointment from './pages/patient/BookAppointment';
 import MedicalRecords from './pages/patient/MedicalRecords';
 import LabResults from './pages/patient/LabResults';
+import PatientDocuments from './pages/patient/Documents';
 
 function App() {
   return (
@@ -106,6 +107,7 @@ function App() {
           <Route path="/patient/book-appointment" element={<BookAppointment />} />
           <Route path="/patient/medical-records" element={<MedicalRecords />} /> 
           <Route path="/patient/lab-results" element={<LabResults />} /> 
+          <Route path="/patient/documents" element={<PatientDocuments />} /> 
         </Route>
 
         {/* Catch all - redirect to login */}

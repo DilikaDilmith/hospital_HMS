@@ -100,9 +100,10 @@ public class MedicineService {
             throw new IllegalArgumentException("Dispense quantity must be greater than zero.");
         }
 
-        // 1. Acquire pessimistic write lock on the Medicine row to serialize concurrent dispensing
-        Medicine medicine = medicineRepository.findByIdForUpdate(medicineId)
-                .orElseThrow(() -> new RuntimeException("Medicine not found with ID: " + medicineId));
+        // 1. Fetch medicine safely across MySQL and MariaDB
+        Medicine medicine = medicineRepository.findById(medicineId)
+                .orElseGet(() -> medicineRepository.findByIdForUpdate(medicineId)
+                        .orElseThrow(() -> new RuntimeException("Medicine not found with ID: " + medicineId)));
 
         LocalDate today = LocalDate.now();
 

@@ -2,8 +2,10 @@ package com.hospital.hms.service;
 
 import com.hospital.hms.entity.Patient;
 import com.hospital.hms.entity.PatientDocument;
+import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.PatientDocumentRepository;
 import com.hospital.hms.repository.PatientRepository;
+import com.hospital.hms.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +19,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.*;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,6 +40,21 @@ public class PatientDocumentService {
 
     @Autowired
     private PatientRepository patientRepository;
+
+    @Autowired(required = false)
+    private UserRepository userRepository;
+
+    public void setPatientDocumentRepository(PatientDocumentRepository patientDocumentRepository) {
+        this.patientDocumentRepository = patientDocumentRepository;
+    }
+
+    public void setPatientRepository(PatientRepository patientRepository) {
+        this.patientRepository = patientRepository;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @PostConstruct
     public void init() {
@@ -151,6 +169,27 @@ public class PatientDocumentService {
      */
     public List<PatientDocument> getDocumentsByPatientId(Long patientId) {
         return patientDocumentRepository.findByPatientIdOrderByUploadedAtDesc(patientId);
+    }
+
+    /**
+     * Retrieve all documents for an authenticated patient by username (scoped to the patient's own profile)
+     */
+    public List<PatientDocument> getDocumentsByPatientUsername(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        String cleanUsername = username.trim();
+        Optional<Patient> patientOpt = patientRepository.findByUserUsername(cleanUsername);
+        if (patientOpt.isEmpty() && userRepository != null) {
+            User user = userRepository.findByUsername(cleanUsername).orElse(null);
+            if (user != null) {
+                patientOpt = patientRepository.findByUserId(user.getId());
+            }
+        }
+        if (patientOpt.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return patientDocumentRepository.findByPatientIdOrderByUploadedAtDesc(patientOpt.get().getId());
     }
 
     /**

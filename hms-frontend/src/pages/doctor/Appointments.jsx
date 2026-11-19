@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaCalendarCheck, FaNotesMedical, FaFlask, FaUserShield, FaSearch, FaFilter, FaCheckCircle, FaClock } from 'react-icons/fa';
+import { FaCalendarCheck, FaNotesMedical, FaFlask, FaUserShield, FaSearch, FaFilter, FaCheckCircle, FaClock, FaFolderOpen } from 'react-icons/fa';
 import AddEMRModal from '../../components/doctor/AddEMRModal';
 import AddLabTestModal from './AddLabTestModal';
+import PatientDocumentsModal from '../../components/admin/PatientDocumentsModal';
 
 function DoctorAppointments() {
     const [appointments, setAppointments] = useState([]);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
+    const [selectedPatientForDocs, setSelectedPatientForDocs] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [loading, setLoading] = useState(true);
@@ -223,6 +225,17 @@ function DoctorAppointments() {
                                                 >
                                                     <FaFlask /> Lab Test
                                                 </button>
+
+                                                {/* Patient Medical Documents Modal Button */}
+                                                {appt.patient && (
+                                                    <button 
+                                                        onClick={() => setSelectedPatientForDocs(appt.patient)}
+                                                        className="bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition text-xs font-semibold border border-purple-200 hover:border-purple-600 shadow-sm"
+                                                        title="View & Upload Patient Medical Documents"
+                                                    >
+                                                        <FaFolderOpen /> Docs
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -258,6 +271,13 @@ function DoctorAppointments() {
                     appointment={selectedAppointment}
                     onClose={() => setShowLabModal(false)} 
                     onTestRequested={fetchAppointments} 
+                />
+            )}
+
+            {selectedPatientForDocs && (
+                <PatientDocumentsModal 
+                    patient={selectedPatientForDocs}
+                    onClose={() => setSelectedPatientForDocs(null)}
                 />
             )}
         </div>

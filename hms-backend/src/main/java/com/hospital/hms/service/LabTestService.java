@@ -2,12 +2,17 @@ package com.hospital.hms.service;
 
 import com.hospital.hms.entity.LabTest;
 import com.hospital.hms.entity.LabTestStatus;
+import com.hospital.hms.entity.Patient;
+import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.LabTestRepository;
+import com.hospital.hms.repository.PatientRepository;
+import com.hospital.hms.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +24,28 @@ public class LabTestService {
 
     @Autowired
     private InvoiceService invoiceService;
+
+    @Autowired(required = false)
+    private PatientRepository patientRepository;
+
+    @Autowired(required = false)
+    private UserRepository userRepository;
+
+    public void setLabTestRepository(LabTestRepository labTestRepository) {
+        this.labTestRepository = labTestRepository;
+    }
+
+    public void setInvoiceService(InvoiceService invoiceService) {
+        this.invoiceService = invoiceService;
+    }
+
+    public void setPatientRepository(PatientRepository patientRepository) {
+        this.patientRepository = patientRepository;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     // Doctor requests a new lab test
     @Transactional
@@ -52,7 +79,29 @@ public class LabTestService {
 
     // Retrieve lab tests for an authenticated patient by username
     public List<LabTest> getTestsByPatientUsername(String username) {
-        return labTestRepository.findByPatientUserUsernameOrderByRequestedAtDesc(username);
+        if (username == null || username.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        String cleanUsername = username.trim();
+        List<LabTest> list = labTestRepository.findByPatientUserUsernameOrderByRequestedAtDesc(cleanUsername);
+        if (!list.isEmpty()) {
+            return list;
+        }
+
+        if (patientRepository != null) {
+            Optional<Patient> p = patientRepository.findByUserUsername(cleanUsername);
+            if (p.isEmpty() && userRepository != null) {
+                User u = userRepository.findByUsername(cleanUsername).orElse(null);
+                if (u != null) {
+                    p = patientRepository.findByUserId(u.getId());
+                }
+            }
+            if (p.isPresent()) {
+                return labTestRepository.findByPatientIdOrderByRequestedAtDesc(p.get().getId());
+            }
+        }
+
+        return Collections.emptyList();
     }
 
     // Retrieve lab tests requested by a specific doctor
