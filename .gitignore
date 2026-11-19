@@ -8,9 +8,7 @@
 *.tar.gz
 *.zip
 backups/
-backup-scripts/backups/
 /backups/
-/backup-scripts/backups/
 *.log
 
 # Patient Document Uploads
