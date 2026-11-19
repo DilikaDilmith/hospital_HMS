@@ -49,6 +49,25 @@ public class DashboardService {
     @Autowired
     private BedRepository bedRepository;
 
+    @Autowired(required = false)
+    private DoctorService doctorService;
+
+    public void setDoctorService(DoctorService doctorService) {
+        this.doctorService = doctorService;
+    }
+
+    public void setDoctorRepository(DoctorRepository doctorRepository) {
+        this.doctorRepository = doctorRepository;
+    }
+
+    public void setAppointmentRepository(AppointmentRepository appointmentRepository) {
+        this.appointmentRepository = appointmentRepository;
+    }
+
+    public void setLabTestRepository(LabTestRepository labTestRepository) {
+        this.labTestRepository = labTestRepository;
+    }
+
     public DashboardResponse getDashboardStats() {
         DashboardResponse response = new DashboardResponse();
 
@@ -146,6 +165,72 @@ public class DashboardService {
                 .collect(Collectors.toList());
         response.setMonthlyRevenue(monthlyDtos);
 
+        return response;
+    }
+
+    // Scoped metrics for an authenticated Doctor (only their own appointments and treated patients)
+    public DashboardResponse getDoctorDashboardStats(String username) {
+        DashboardResponse response = new DashboardResponse();
+        Doctor doctor = null;
+        if (doctorService != null && username != null) {
+            doctor = doctorService.getDoctorByUsername(username).orElse(null);
+        }
+        if (doctor == null && username != null && doctorRepository != null) {
+            doctor = doctorRepository.findByUserUsername(username)
+                    .or(() -> doctorRepository.findByEmailIgnoreCase(username))
+                    .orElse(null);
+        }
+
+        if (doctor != null) {
+            List<Appointment> myAppointments = appointmentRepository.findByDoctorId(doctor.getId());
+            response.setTotalAppointments((long) myAppointments.size());
+
+            LocalDate today = LocalDate.now();
+            long todaysAppts = myAppointments.stream()
+                    .filter(a -> a.getAppointmentDateTime() != null && a.getAppointmentDateTime().toLocalDate().isEqual(today))
+                    .count();
+            response.setTodaysAppointments(todaysAppts);
+
+            long uniquePatients = myAppointments.stream()
+                    .map(Appointment::getPatient)
+                    .filter(Objects::nonNull)
+                    .map(Patient::getId)
+                    .distinct()
+                    .count();
+            response.setTotalPatients(uniquePatients);
+
+            // Lab requests for this doctor's patients
+            Set<Long> patientIds = myAppointments.stream()
+                    .map(Appointment::getPatient)
+                    .filter(Objects::nonNull)
+                    .map(Patient::getId)
+                    .collect(Collectors.toSet());
+
+            long pendingLabTests = 0;
+            if (!patientIds.isEmpty() && labTestRepository != null) {
+                pendingLabTests = labTestRepository.findAll().stream()
+                        .filter(t -> t.getPatient() != null && patientIds.contains(t.getPatient().getId()))
+                        .filter(t -> t.getStatus() == LabTestStatus.REQUESTED)
+                        .count();
+            }
+            response.setPendingLabTests(pendingLabTests);
+            response.setTotalLabRequests((long) patientIds.size());
+
+            // Status distribution for this doctor's appointments
+            Map<String, Long> statusCounts = new HashMap<>();
+            for (Appointment a : myAppointments) {
+                String st = a.getStatus() != null ? a.getStatus().name() : "SCHEDULED";
+                statusCounts.put(st, statusCounts.getOrDefault(st, 0L) + 1);
+            }
+            List<DashboardResponse.AppointmentStatusDto> aptDtos = new ArrayList<>();
+            statusCounts.forEach((status, count) -> aptDtos.add(new DashboardResponse.AppointmentStatusDto(status, count)));
+            response.setAppointmentStats(aptDtos);
+        } else {
+            response.setTotalAppointments(0L);
+            response.setTodaysAppointments(0L);
+            response.setTotalPatients(0L);
+            response.setPendingLabTests(0L);
+        }
         return response;
     }
 }
