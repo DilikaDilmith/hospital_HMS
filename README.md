@@ -24,7 +24,8 @@
    - [Frontend Setup](#3-frontend-setup-react--vite)
 7. [Default Seed Accounts & Test Credentials](#-default-seed-accounts--test-credentials)
 8. [REST API Endpoint Reference](#-rest-api-endpoint-reference)
-9. [Testing & Quality Assurance](#-testing--quality-assurance)
+9. [Automated Backup & Disaster Recovery](#-automated-backup--disaster-recovery)
+10. [Testing & Quality Assurance](#-testing--quality-assurance)
 
 ---
 
@@ -143,6 +144,13 @@ The **Hospital Management System (HMS)** is an enterprise-grade web application 
 
 ```text
 hms/
+├── backup-scripts/                      # Disaster recovery and database backup scripts
+│   ├── daily-db-backup.ps1 / .bat       # Daily MySQL database dump
+│   ├── weekly-full-backup.ps1 / .bat    # Weekly archive (Database + Uploaded Documents)
+│   ├── restore-backup.ps1 / .bat        # Safe interactive restore utility
+│   └── README.md
+│
+├── BACKUP_AND_RECOVERY.md               # Disaster Recovery & Windows Task Scheduler guide
 ├── hms-backend/                         # Spring Boot Backend REST API
 │   ├── src/main/java/com/hospital/hms/
 │   │   ├── config/                      # Web and application configurations
@@ -323,6 +331,35 @@ The system seeds the following default accounts automatically upon startup. All 
 * `GET /api/invoices/my`: Authenticated patient's invoices.
 * `POST /api/invoices/{id}/items`: Add itemized charges (`CONSULTATION`, `PHARMACY`, `LAB`, `WARD`).
 * `PUT /api/invoices/{id}/pay`: Settle invoice via `CASH`, `CARD`, or `INSURANCE`.
+
+---
+
+## 💾 Automated Backup & Disaster Recovery
+
+The project includes complete standalone backup and disaster recovery automation in accordance with **SRS Section 10** located in [backup-scripts/](file:///c:/Users/dilik/Desktop/Projects/SLT%20Projects/hms/backup-scripts/) and documented in [BACKUP_AND_RECOVERY.md](file:///c:/Users/dilik/Desktop/Projects/SLT%20Projects/hms/BACKUP_AND_RECOVERY.md):
+
+* **Automatic Daily Database Backup (`daily-db-backup.ps1` / `.bat`)**:
+  - Dumps `hms_db` using `mysqldump` with `--single-transaction`, routines, and triggers.
+  - Automatically purges backups older than 30 days.
+* **Weekly Full Backup (`weekly-full-backup.ps1` / `.bat`)**:
+  - Bundles the complete database dump and all patient uploaded files (`uploads/patient-documents/`) into a compressed `.zip` archive.
+  - Retains weekly archives for 60–90 days.
+* **Disaster Recovery & Safe Database Restoration (`restore-backup.ps1` / `.bat`)**:
+  - Interactive restoration utility with safety confirmation prompts preventing accidental overwrites.
+* **Audit Trail**:
+  - Real-time logging of administrative, clinical, and financial actions in `audit_logs` table via `AuditLogService` with password/token sanitization.
+
+```powershell
+# Run a manual daily database dump
+cd backup-scripts
+.\daily-db-backup.ps1
+
+# Run a manual weekly full archive (DB + Documents)
+.\weekly-full-backup.ps1
+
+# Restore from a backup archive
+.\restore-backup.ps1 -BackupFile "backups/daily/hms_daily_YYYYMMDD_HHMMSS.sql"
+```
 
 ---
 
