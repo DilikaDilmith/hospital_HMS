@@ -4,10 +4,12 @@ import com.hospital.hms.entity.Medicine;
 import com.hospital.hms.entity.MedicineBatch;
 import com.hospital.hms.entity.Patient;
 import com.hospital.hms.repository.PatientRepository;
+import com.hospital.hms.service.AuditLogService;
 import com.hospital.hms.service.MedicineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,14 +25,27 @@ public class MedicineController {
     @Autowired
     private PatientRepository patientRepository;
 
+    @Autowired(required = false)
+    private AuditLogService auditLogService;
+
     // Endpoint to add a new medicine to inventory
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'PHARMACIST', 'ROLE_ADMIN', 'ROLE_PHARMACIST')")
-    public ResponseEntity<?> addMedicine(@RequestBody Medicine medicine) {
+    public ResponseEntity<?> addMedicine(@RequestBody Medicine medicine, Authentication authentication) {
         try {
             Medicine created = medicineService.addMedicine(medicine);
+            if (auditLogService != null) {
+                String actor = authentication != null ? authentication.getName() : "STAFF";
+                auditLogService.log(actor, "MEDICINE_ADD", "SUCCESS",
+                        "Added new medicine to inventory: " + created.getName() + " (ID: " + created.getId() + ")");
+            }
             return ResponseEntity.ok(created);
         } catch (Exception e) {
+            if (auditLogService != null) {
+                String actor = authentication != null ? authentication.getName() : "STAFF";
+                auditLogService.log(actor, "MEDICINE_ADD", "FAILED",
+                        "Failed to add medicine '" + (medicine != null ? medicine.getName() : "") + "': " + e.getMessage());
+            }
             return ResponseEntity.badRequest().body("Failed to add medicine: " + e.getMessage());
         }
     }
