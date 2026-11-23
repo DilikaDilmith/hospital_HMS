@@ -17,6 +17,7 @@ import AddBatchModal from '../../components/pharmacist/AddBatchModal';
 
 function MedicineBatches() {
     const [batches, setBatches] = useState([]);
+    const [medicinesMap, setMedicinesMap] = useState({});
     const [showModal, setShowModal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -30,8 +31,22 @@ function MedicineBatches() {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.get('http://localhost:8080/api/medicines/batches', config);
-            setBatches(Array.isArray(res.data) ? res.data : []);
+            const [batchesRes, medRes] = await Promise.allSettled([
+                axios.get('http://localhost:8080/api/medicines/batches', config),
+                axios.get('http://localhost:8080/api/medicines', config)
+            ]);
+
+            const map = {};
+            if (medRes.status === 'fulfilled' && Array.isArray(medRes.value.data)) {
+                medRes.value.data.forEach(m => {
+                    map[m.id] = m;
+                });
+                setMedicinesMap(map);
+            }
+
+            if (batchesRes.status === 'fulfilled') {
+                setBatches(Array.isArray(batchesRes.value.data) ? batchesRes.value.data : []);
+            }
             setLoading(false);
         } catch (err) {
             console.error("Error loading batches:", err);
@@ -43,6 +58,15 @@ function MedicineBatches() {
     useEffect(() => {
         fetchBatches();
     }, []);
+
+    // Helper to resolve medicine details for any batch
+    const getMedicineForBatch = (b) => {
+        if (b.medicine && b.medicine.name) return b.medicine;
+        if (b.medicineName) return { name: b.medicineName, price: b.medicinePrice || 0 };
+        if (b.medicineId && medicinesMap[b.medicineId]) return medicinesMap[b.medicineId];
+        if (b.medicine?.id && medicinesMap[b.medicine.id]) return medicinesMap[b.medicine.id];
+        return null;
+    };
 
     // Expiry analysis
     const getExpiryInfo = (expiryDateStr) => {
@@ -81,7 +105,8 @@ function MedicineBatches() {
         if (!query) return true;
 
         const batchNum = (b.batchNumber || '').toLowerCase();
-        const medName = b.medicine?.name ? b.medicine.name.toLowerCase() : '';
+        const med = getMedicineForBatch(b);
+        const medName = med?.name ? med.name.toLowerCase() : '';
         return batchNum.includes(query) || medName.includes(query);
     });
 
@@ -231,19 +256,24 @@ function MedicineBatches() {
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
-                                                        <FaPills size={12} />
-                                                    </div>
-                                                    <div>
-                                                        <span className="font-semibold text-gray-900 block">
-                                                            {b.medicine?.name || 'Unknown'}
-                                                        </span>
-                                                        <span className="text-[11px] text-gray-400">
-                                                            LKR {Number(b.medicine?.price || 0).toFixed(2)} / unit
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                                {(() => {
+                                                    const med = getMedicineForBatch(b);
+                                                    return (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center flex-shrink-0">
+                                                                <FaPills size={12} />
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-semibold text-gray-900 block">
+                                                                    {med?.name || 'Unknown'}
+                                                                </span>
+                                                                <span className="text-[11px] text-gray-400">
+                                                                    LKR {Number(med?.price || 0).toFixed(2)} / unit
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="p-4">
                                                 <span className={`font-bold text-sm ${b.quantity < 30 ? 'text-amber-600' : 'text-gray-900'}`}>

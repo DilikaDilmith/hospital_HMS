@@ -1,7 +1,7 @@
 package com.hospital.hms.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -44,7 +44,7 @@ public class Medicine {
 
     // Inventory batches tracked for this medicine (FEFO deduction)
     @OneToMany(mappedBy = "medicine", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonIgnoreProperties({"medicine"})
     private List<MedicineBatch> batches = new ArrayList<>();
 
     @PrePersist

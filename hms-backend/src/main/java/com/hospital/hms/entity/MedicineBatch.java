@@ -1,7 +1,8 @@
 package com.hospital.hms.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,8 +25,18 @@ public class MedicineBatch {
     // Many-to-One relationship: Batch belongs to a specific medicine
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "medicine_id", nullable = false)
-    @JsonBackReference
+    @JsonIgnoreProperties({"batches"})
     private Medicine medicine;
+
+    @JsonProperty("medicineName")
+    public String getMedicineName() {
+        return this.medicine != null ? this.medicine.getName() : null;
+    }
+
+    @JsonProperty("medicinePrice")
+    public Double getMedicinePrice() {
+        return this.medicine != null ? this.medicine.getPrice() : null;
+    }
 
     // Unique batch identifier code (e.g. BATCH-2026-A1)
     @Column(nullable = false, length = 50)
