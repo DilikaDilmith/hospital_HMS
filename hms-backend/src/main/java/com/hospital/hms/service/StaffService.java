@@ -4,10 +4,12 @@ import com.hospital.hms.dto.AttendanceRequest;
 import com.hospital.hms.dto.EmployeeRequest;
 import com.hospital.hms.entity.Attendance;
 import com.hospital.hms.entity.Employee;
+import com.hospital.hms.entity.LeaveRecord;
 import com.hospital.hms.entity.Role;
 import com.hospital.hms.entity.User;
 import com.hospital.hms.repository.AttendanceRepository;
 import com.hospital.hms.repository.EmployeeRepository;
+import com.hospital.hms.repository.LeaveRecordRepository;
 import com.hospital.hms.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -29,7 +31,26 @@ public class StaffService {
     private AttendanceRepository attendanceRepository;
 
     @Autowired
+    private LeaveRecordRepository leaveRecordRepository;
+
+    @Autowired
     private UserRepository userRepository;
+
+    public void setEmployeeRepository(EmployeeRepository employeeRepository) {
+        this.employeeRepository = employeeRepository;
+    }
+
+    public void setAttendanceRepository(AttendanceRepository attendanceRepository) {
+        this.attendanceRepository = attendanceRepository;
+    }
+
+    public void setLeaveRecordRepository(LeaveRecordRepository leaveRecordRepository) {
+        this.leaveRecordRepository = leaveRecordRepository;
+    }
+
+    public void setUserRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     // Retrieve all employee profiles
     public List<Employee> getAllEmployees() {
@@ -108,11 +129,25 @@ public class StaffService {
         return employeeRepository.save(employee);
     }
 
-    // Delete an employee record
+    // Delete an employee record along with associated child records (attendance, leaves)
     @Transactional
     public void deleteEmployee(Long id) {
         Employee employee = getEmployeeById(id);
+
+        // Delete associated attendance records first to avoid foreign key constraint violations
+        if (attendanceRepository != null) {
+            attendanceRepository.deleteByEmployeeId(id);
+            attendanceRepository.flush();
+        }
+
+        // Delete associated leave records first to avoid foreign key constraint violations
+        if (leaveRecordRepository != null) {
+            leaveRecordRepository.deleteByEmployeeId(id);
+            leaveRecordRepository.flush();
+        }
+
         employeeRepository.delete(employee);
+        employeeRepository.flush();
     }
 
     // Retrieve all attendance logs ordered by newest date

@@ -1114,7 +1114,7 @@ function PatientDashboard() {
                                                     )}
                                                 </td>
                                                 <td className="p-3.5 font-semibold text-slate-900 text-xs">
-                                                    ${Number(inv.totalAmount || 0).toFixed(2)}
+                                                    LKR {Number(inv.totalAmount || 0).toFixed(2)}
                                                 </td>
                                                 <td className="p-3.5 text-center">
                                                     {getStatusBadge(inv.status)}

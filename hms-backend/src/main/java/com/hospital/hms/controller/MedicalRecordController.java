@@ -10,6 +10,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -108,24 +110,32 @@ public class MedicalRecordController {
         return medicalRecordService.getAllRecords();
     }
 
-    // Endpoint for Pharmacists to mark a prescription as dispensed with batch deduction and billing
+    // Endpoint for Pharmacists to mark a prescription as dispensed with batch deduction and billing (supports single or multiple medicines)
     @PutMapping("/{id}/dispense")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'PHARMACIST', 'ROLE_ADMIN', 'ROLE_PHARMACIST')")
     public ResponseEntity<?> dispenseRecord(
             @PathVariable Long id, 
             @RequestBody(required = false) Map<String, Object> payload) {
         try {
-            Long medicineId = null;
-            Integer quantity = null;
+            List<Map<String, Object>> items = new ArrayList<>();
             if (payload != null) {
-                if (payload.get("medicineId") != null && !payload.get("medicineId").toString().isEmpty()) {
-                    medicineId = Long.parseLong(payload.get("medicineId").toString());
-                }
-                if (payload.get("quantity") != null && !payload.get("quantity").toString().isEmpty()) {
-                    quantity = Integer.parseInt(payload.get("quantity").toString());
+                if (payload.get("items") instanceof List) {
+                    List<?> rawList = (List<?>) payload.get("items");
+                    for (Object obj : rawList) {
+                        if (obj instanceof Map) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> itemMap = (Map<String, Object>) obj;
+                            items.add(itemMap);
+                        }
+                    }
+                } else if (payload.get("medicineId") != null && !payload.get("medicineId").toString().trim().isEmpty()) {
+                    Map<String, Object> singleItem = new HashMap<>();
+                    singleItem.put("medicineId", payload.get("medicineId"));
+                    singleItem.put("quantity", payload.get("quantity"));
+                    items.add(singleItem);
                 }
             }
-            MedicalRecord result = medicalRecordService.dispenseRecord(id, medicineId, quantity);
+            MedicalRecord result = medicalRecordService.dispenseRecord(id, items);
             return ResponseEntity.ok(result);
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(e.getMessage());

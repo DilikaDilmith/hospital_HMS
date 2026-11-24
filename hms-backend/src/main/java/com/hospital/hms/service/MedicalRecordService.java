@@ -11,8 +11,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -96,9 +99,9 @@ public class MedicalRecordService {
         return medicalRecordRepository.findById(id);
     }
 
-    // Update status to DISPENSED, deduct from earliest expiring valid batch (FEFO), and auto-bill atomically
+    // Update status to DISPENSED, deduct from earliest expiring valid batch (FEFO), and auto-bill atomically for multiple items
     @Transactional
-    public MedicalRecord dispenseRecord(Long id, Long medicineId, Integer quantity) {
+    public MedicalRecord dispenseRecord(Long id, List<Map<String, Object>> items) {
         MedicalRecord record = medicalRecordRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Record not found with id: " + id));
 
@@ -106,10 +109,26 @@ public class MedicalRecordService {
             throw new IllegalStateException("Prescription #" + id + " has already been dispensed.");
         }
 
-        // Deduct from batch and auto-bill if medicine was selected
-        if (medicineId != null && quantity != null && quantity > 0) {
-            medicineService.dispenseMedicine(medicineId, quantity, record.getPatient());
-        } else if (record.getPatient() != null) {
+        boolean anyDispensed = false;
+        if (items != null && !items.isEmpty()) {
+            for (Map<String, Object> item : items) {
+                if (item == null) continue;
+                Long medId = null;
+                Integer qty = null;
+                if (item.get("medicineId") != null && !item.get("medicineId").toString().trim().isEmpty()) {
+                    medId = Long.parseLong(item.get("medicineId").toString().trim());
+                }
+                if (item.get("quantity") != null && !item.get("quantity").toString().trim().isEmpty()) {
+                    qty = Integer.parseInt(item.get("quantity").toString().trim());
+                }
+                if (medId != null && qty != null && qty > 0) {
+                    medicineService.dispenseMedicine(medId, qty, record.getPatient());
+                    anyDispensed = true;
+                }
+            }
+        }
+
+        if (!anyDispensed && record.getPatient() != null) {
             // General prescription dispensing charge
             String medName = (record.getPrescription() != null && !record.getPrescription().trim().isEmpty())
                     ? record.getPrescription().trim()
@@ -119,5 +138,18 @@ public class MedicalRecordService {
 
         record.setStatus("DISPENSED");
         return medicalRecordRepository.save(record);
+    }
+
+    // Overloaded for backward compatibility with single medicine calls
+    @Transactional
+    public MedicalRecord dispenseRecord(Long id, Long medicineId, Integer quantity) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        if (medicineId != null && quantity != null && quantity > 0) {
+            Map<String, Object> single = new HashMap<>();
+            single.put("medicineId", medicineId);
+            single.put("quantity", quantity);
+            items.add(single);
+        }
+        return dispenseRecord(id, items);
     }
 }

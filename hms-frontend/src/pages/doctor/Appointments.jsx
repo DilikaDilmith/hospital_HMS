@@ -17,6 +17,7 @@ function DoctorAppointments() {
     // Modals state
     const [showEMRModal, setShowEMRModal] = useState(false);
     const [showLabModal, setShowLabModal] = useState(false);
+    const [toast, setToast] = useState({ type: '', text: '' });
 
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -112,6 +113,26 @@ function DoctorAppointments() {
                     <span>Doctor Privacy Isolation: Showing Only Your Booked Patients</span>
                 </div>
             </div>
+
+            {/* Notification Toast */}
+            {toast.text && (
+                <div className={`p-4 rounded-2xl flex justify-between items-center text-xs sm:text-sm shadow-sm border animate-in fade-in duration-200 ${
+                    toast.type === 'error' 
+                        ? 'bg-rose-50 text-rose-800 border-rose-200' 
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                }`}>
+                    <div className="flex items-center gap-2.5">
+                        <FaCheckCircle className="text-emerald-500 text-base flex-shrink-0" />
+                        <span className="font-semibold">{toast.text}</span>
+                    </div>
+                    <button 
+                        onClick={() => setToast({ type: '', text: '' })} 
+                        className="font-bold text-gray-400 hover:text-gray-700 text-base leading-none p-1"
+                    >
+                        &times;
+                    </button>
+                </div>
+            )}
 
             {/* Filter and Search Bar */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col sm:flex-row gap-3 justify-between items-center">
@@ -262,7 +283,11 @@ function DoctorAppointments() {
                 <AddEMRModal 
                     appointment={selectedAppointment}
                     onClose={() => setShowEMRModal(false)} 
-                    onRecordAdded={fetchAppointments} 
+                    onRecordAdded={() => {
+                        const patName = selectedAppointment.patient ? `${selectedAppointment.patient.firstName} ${selectedAppointment.patient.lastName}` : 'patient';
+                        setToast({ type: 'success', text: `Medical record (EMR) successfully saved for ${patName}!` });
+                        fetchAppointments();
+                    }} 
                 />
             )}
 
@@ -270,7 +295,11 @@ function DoctorAppointments() {
                 <AddLabTestModal 
                     appointment={selectedAppointment}
                     onClose={() => setShowLabModal(false)} 
-                    onTestRequested={fetchAppointments} 
+                    onTestRequested={() => {
+                        const patName = selectedAppointment.patient ? `${selectedAppointment.patient.firstName} ${selectedAppointment.patient.lastName}` : 'patient';
+                        setToast({ type: 'success', text: `Diagnostic laboratory test successfully ordered for ${patName}!` });
+                        fetchAppointments();
+                    }} 
                 />
             )}
 

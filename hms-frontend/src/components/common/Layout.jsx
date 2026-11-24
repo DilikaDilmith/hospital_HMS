@@ -129,6 +129,9 @@ function Layout() {
               <Link to="/pharmacist/batches" className={linkClass("/pharmacist/batches")}>
                 <FaBoxes className="text-amber-400" /> Medicine Batches
               </Link>
+              <Link to="/pharmacist/inventory" className={linkClass("/pharmacist/inventory")}>
+                <FaPills className="text-emerald-400" /> Medicine Inventory
+              </Link>
             </>
           )}
 

@@ -2,7 +2,11 @@ package com.hospital.hms.repository;
 
 import com.hospital.hms.entity.Attendance;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -13,6 +17,12 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     // Retrieve attendance history for an employee
     List<Attendance> findByEmployeeIdOrderByDateDesc(Long employeeId);
+
+    // Delete all attendance records for an employee
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM Attendance a WHERE a.employee.id = :employeeId")
+    void deleteByEmployeeId(@Param("employeeId") Long employeeId);
 
     // Retrieve all attendance entries for a given date
     List<Attendance> findByDateOrderByCheckInTimeAsc(LocalDate date);

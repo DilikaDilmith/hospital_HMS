@@ -177,10 +177,11 @@ function StaffManagement() {
         if (!window.confirm("Are you sure you want to delete this staff record?")) return;
         try {
             await axios.delete(`http://localhost:8080/api/staff/employees/${id}`, authHeader);
-            alert("Staff record deleted.");
+            alert("✅ Staff record deleted successfully.");
             fetchEmployees();
         } catch (err) {
-            alert("Error deleting: " + (err.response?.data || err.message));
+            const msg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response?.data : JSON.stringify(err.response?.data)) || err.message;
+            alert("Error deleting: " + msg);
         }
     };
 

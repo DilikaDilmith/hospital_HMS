@@ -129,12 +129,12 @@ public class StaffController {
             if (auditLogService != null) {
                 auditLogService.log(actor, "STAFF_DELETE", "SUCCESS", "Removed staff employee ID: " + id);
             }
-            return ResponseEntity.ok("Employee record removed successfully.");
+            return ResponseEntity.ok(Map.of("message", "Employee record removed successfully."));
         } catch (Exception e) {
             if (auditLogService != null) {
                 auditLogService.log(actor, "STAFF_DELETE", "FAILED", "Failed to delete staff employee ID: " + id + " - " + e.getMessage());
             }
-            return ResponseEntity.badRequest().body("Failed to delete employee: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("message", "Failed to delete employee: " + e.getMessage()));
         }
     }
 

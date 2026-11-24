@@ -94,6 +94,7 @@ function App() {
           {/* Pharmacist Specific Routes */}
           <Route path="/pharmacist/prescriptions" element={<PharmacistPrescriptions />} />
           <Route path="/pharmacist/batches" element={<MedicineBatches />} />
+          <Route path="/pharmacist/inventory" element={<Pharmacy />} />
           <Route path="/admin/batches" element={<MedicineBatches />} />
 
           {/* Receptionist Specific Routes (Reusing existing components for now) */}
